@@ -1,0 +1,13 @@
+﻿<Window x:Class="TileMapWPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tile Map Example" Height="600" Width="800"
+        WindowStartupLocation="CenterScreen" WindowState="Maximized">
+    <Grid>
+        <!-- Game Canvas (Background) -->
+        <Canvas x:Name="GameCanvas" Background="Black" />
+
+        <!-- Map Canvas (For Rendering Tiles) -->
+        <Canvas x:Name="MapCanvas" />
+    </Grid>
+</Window>
