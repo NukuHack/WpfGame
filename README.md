@@ -56,6 +56,7 @@ If you'd like to contribute to WpfGame, feel free to fork the repository and sub
 This project wouldn't have been possible without the following resources:
 - Microsoft's [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/) for guidance and tutorials.
 - The vibrant community of developers who share their knowledge and solutions online.
+- And Of course the AI who made atleast 80% of the stuff in here
 
 ---
 
