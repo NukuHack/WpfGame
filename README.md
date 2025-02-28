@@ -2,7 +2,7 @@
 
 Some basic C#, made for some testing and to have fun developing it.
 - Most of the code and the entire readme was written by AI so don't expect much
-- SOme parts may not work or some information might be false ... just like usual AI
+- Some parts may not work or some information might be false ... just like usual AI
 
 ---
 
