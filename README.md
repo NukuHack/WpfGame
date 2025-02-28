@@ -1,6 +1,7 @@
 # WpfGame
 
 Some basic C#, made for some testing and to have fun developing it.
+(Most of the code and the entire readme was written by AI so don't expect much)
 
 ---
 
@@ -59,9 +60,9 @@ This project wouldn't have been possible without the following resources:
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+This project is not licensed. You may steal what you want.
 
 ---
 
-Thank you for checking out WpfGame! I hope you find it both entertaining and educational. If you have any questions or feedback, please don't hesitate to reach out.
+Thank you for checking out my WpfGame! I hope you find it both entertaining and educational.
 
