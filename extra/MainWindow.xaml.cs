@@ -1,260 +1,453 @@
-using System;
-using System.IO;
-using System.Text;
-using System.Linq;
-using System.Drawing;
-using System.Xml.Linq;
-using System.Threading.Tasks;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Windows;
-using System.Windows.Data;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Shapes;
 using System.Windows.Controls;
-using System.Windows.Documents;
-using System.Windows.Threading;
-using System.Windows.Navigation;
-using System.Windows.Media.Imaging;
 
-namespace color
+public class Player
 {
-    public class Palette
-    {
-        public Dictionary<int, int> _colorIndexMap = new Dictionary<int, int>();
-        public List<Color> Colors { get; set; } = new List<Color>();
+    public string Name { get; set; }
+    public int Health { get; set; }
+    public int Coins { get; set; }
+    public Position Position { get; set; } = new Position();
+}
 
-        public void AddColors(IEnumerable<Color> colors)
-        {
-            foreach (var color in colors)
-            {
-                int colorKey = GetColorKey(color);
-                if (!_colorIndexMap.ContainsKey(colorKey))
-                {
-                    Colors.Add(color);
-                    _colorIndexMap[colorKey] = Colors.Count - 1;
-                }
-            }
-        }
+public class Position
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+}
 
-        public Color GetColor(int index) => index >= 0 && index < Colors.Count ? Colors[index] : Colors[0];
-        public int GetColorIndex(Color color) => _colorIndexMap.ContainsKey(GetColorKey(color)) ? _colorIndexMap[GetColorKey(color)] : 0;
+public class LevelProgress
+{
+    public int CurrentLevel { get; set; }
+    public List<int> UnlockedLevels { get; set; } = new List<int>();
+}
 
-        private int GetColorKey(Color color) => (color.R << 16) | (color.G << 8) | color.B;
+public class Item
+{
+    public string ItemName { get; set; }
+    public int Quantity { get; set; }
+}
 
-        /// <summary>
-        /// Returns a new list with the colors randomized.
-        /// </summary>
-        public List<Color> RandomizeColors()
-        {
-            if (Colors.Count <= 1) return new List<Color>(Colors); // Return a copy if there's one or no colors.
+public class GameSave
+{
+    public Player Player { get; set; } = new Player();
+    public LevelProgress LevelProgress { get; set; } = new LevelProgress();
+    public List<Item> Inventory { get; set; } = new List<Item>();
+}
 
-            var randomizedColors = ShuffleList(Colors); // Shuffle the colors.
-            return randomizedColors; // Return the shuffled list without modifying the original.
-        }
-
-        /// <summary>
-        /// Shuffles a list using the Fisher-Yates algorithm.
-        /// </summary>
-        private List<Color> ShuffleList(List<Color> list)
-        {
-            var randomizedList = new List<Color>(list); // Create a copy of the list.
-            Random random = new Random();
-
-            for (int i = randomizedList.Count - 1; i > 0; i--)
-            {
-                int j = random.Next(i + 1); // Pick a random index from 0 to i.
-                (randomizedList[i], randomizedList[j]) = (randomizedList[j], randomizedList[i]); // Swap elements.
-            }
-
-            return randomizedList;
-        }
-    }
-
+namespace save_load
+{
     public partial class MainWindow : Window
     {
-        private Palette _palette;
-        private WriteableBitmap _originalBitmap;
-        private WriteableBitmap _indexedBitmap;
-        private WriteableBitmap _recoloredBitmap;
+        private GameSave gameData;
+        private string saveFilePath;
+        private readonly string saveDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "My Games\\SpaceGame\\Saves"
+        );
 
         public MainWindow()
         {
             InitializeComponent();
-
-            Image1.Loaded += Image1_Loaded;
-            Button.Click += Button_Click;
-
-            _originalBitmap = LoadBitmap("big.png");
+            this.Loaded += MainWindow_Loaded;
         }
 
-        private void Image1_Loaded(object sender, RoutedEventArgs e)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Initialize UI
+            saveFileOverlay.Visibility = Visibility.Collapsed;
+
+            // Event handlers
+            loadData.Click += LoadData_Click;
+            saveData.Click += SaveData_Click;
+            genData.Click += GenPlayer_Click;
+
+            // Overlay event handlers
+            closeOverlay.Click += CloseOverlay_Click;
+            loadButton.Click += LoadButton_Click;
+            deleteButton.Click += DeleteButton_Click;
+            resaveButton.Click += ResaveButton_Click;
+            loadExternalSave.Click += LoadExternalSave_Click;
+            saveFileSelector.SelectionChanged += SaveFileSelector_SelectionChanged;
+        }
+
+        private void ShowMessage(string message)
+        {
+            MessageBox.Show(message);
+        }
+
+        private void ShowErrorMessage(string message)
+        {
+            MessageBox.Show($"Error: {message}");
+        }
+
+        private void LoadData_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Image1.Source = _originalBitmap;
+                var saveFiles = GetSaveFiles();
+                if (saveFiles.Length == 0)
+                {
+                    ShowMessage("No save files found in the save directory.");
+                    return;
+                }
+
+                saveFileSelector.ItemsSource = saveFiles;
+                saveFileSelector.SelectedIndex = 0;
+                saveFileOverlay.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading image: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowErrorMessage(ex.Message);
             }
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void SaveData_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                _palette = CreatePalette(_originalBitmap);
-                _indexedBitmap = ConvertToIndexed(_originalBitmap, _palette);
-                Palette reordered = new Palette();
-                reordered._colorIndexMap = _palette._colorIndexMap; reordered.Colors = _palette.RandomizeColors();
-                _recoloredBitmap = RecolorIndexedImage(_indexedBitmap, _palette, reordered);
-
-                Image2.Source = _recoloredBitmap;
-            }
-            catch (OutOfMemoryException)
-            {
-                MessageBox.Show("The image is too large to process. Please try with a smaller image.", "Memory Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                CheckSavePath();
+                Directory.CreateDirectory(Path.GetDirectoryName(saveFilePath));
+                SaveGame(gameData, saveFilePath);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowErrorMessage(ex.Message);
             }
         }
 
-        private static WriteableBitmap LoadBitmap(string filePath)
+        private void GenPlayer_Click(object sender, RoutedEventArgs e)
         {
-            if (!File.Exists(filePath))
-                throw new FileNotFoundException($"The file '{filePath}' does not exist.");
-
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(filePath, UriKind.Relative);
-            bitmap.EndInit();
-
-            return new WriteableBitmap(bitmap);
-        }
-
-        private static Palette CreatePalette(WriteableBitmap bitmap)
-        {
-            var uniqueColors = ExtractColors(bitmap).ToList();
-            Palette palette = new Palette();
-            palette.AddColors(uniqueColors);
-            return palette;
-        }
-
-        private static IEnumerable<Color> ExtractColors(WriteableBitmap bitmap)
-        {
-            var width = bitmap.PixelWidth;
-            var height = bitmap.PixelHeight;
-            var stride = width * 4;
-
-            var pixels = new byte[height * stride];
-            bitmap.CopyPixels(pixels, stride, 0);
-
-            var uniqueColors = new HashSet<int>();
-
-            Parallel.For(0, height, y =>
+            gameData = new GameSave
             {
-                for (int x = 0; x < width; x++)
+                Player = new Player
                 {
-                    var offset = y * stride + x * 4;
-                    var alpha = pixels[offset + 3]; // Alpha channel
-                    if (alpha == 0) continue; // Skip fully transparent pixels
-
-                    var colorKey = (pixels[offset + 2] << 16) | (pixels[offset + 1] << 8) | pixels[offset];
-                    lock (uniqueColors)
-                    {
-                        uniqueColors.Add(colorKey);
-                    }
+                    Name = "Hero",
+                    Health = 100,
+                    Coins = 50,
+                    Position = new Position { X = 100, Y = 200 }
+                },
+                LevelProgress = new LevelProgress
+                {
+                    CurrentLevel = 3,
+                    UnlockedLevels = new List<int> { 1, 2, 3, 4 }
+                },
+                Inventory = new List<Item>
+                {
+                    new Item { ItemName = "Sword", Quantity = 1 },
+                    new Item { ItemName = "Potion", Quantity = 3 }
                 }
-            });
-
-            return uniqueColors.Select(key => Color.FromRgb((byte)(key >> 16), (byte)((key >> 8) & 0xFF), (byte)(key & 0xFF)));
+            };
         }
-        private static WriteableBitmap ConvertToIndexed(WriteableBitmap originalBitmap, Palette palette)
+
+        private void CheckSavePath()
         {
-            var width = originalBitmap.PixelWidth;
-            var height = originalBitmap.PixelHeight;
-            var stride = width * 4;
+            if (string.IsNullOrEmpty(saveFilePath))
+                saveFilePath = Path.Combine(saveDirectory, "save1.txt");
 
-            var originalPixels = new byte[height * stride];
-            originalBitmap.CopyPixels(originalPixels, stride, 0);
+            if (!Path.HasExtension(saveFilePath))
+                saveFilePath += ".txt";
 
-            var indexedBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
-            var indexedPixels = new byte[height * stride];
+            if (Path.GetExtension(saveFilePath) != ".txt")
+                saveFilePath = Path.ChangeExtension(saveFilePath, ".txt");
+        }
 
-            Parallel.For(0, height, y =>
+        private string[] GetSaveFiles()
+        {
+            if (!Directory.Exists(saveDirectory))
+                return Array.Empty<string>();
+
+            return Directory.GetFiles(saveDirectory, "*.txt")
+                            .Select(Path.GetFileName)
+                            .ToArray();
+        }
+
+        private void SaveFileSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (saveFileSelector.SelectedItem == null) return;
+
+            try
             {
-                for (int x = 0; x < width; x++)
+                var selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+                var loadedGameData = LoadGame(selectedFile);
+
+                if (loadedGameData != null)
                 {
-                    var offset = y * stride + x * 4;
-                    var alpha = originalPixels[offset + 3]; // Alpha channel
-
-                    if (alpha == 0) // Fully transparent pixel
-                    {
-                        indexedPixels[offset + 0] = 0; // Blue
-                        indexedPixels[offset + 1] = 0; // Green
-                        indexedPixels[offset + 2] = 0; // Red
-                        indexedPixels[offset + 3] = 0; // Alpha
-                        continue;
-                    }
-
-                    var colorKey = (originalPixels[offset + 2] << 16) | (originalPixels[offset + 1] << 8) | originalPixels[offset];
-                    var index = palette.GetColorIndex(Color.FromRgb((byte)(colorKey >> 16), (byte)((colorKey >> 8) & 0xFF), (byte)(colorKey & 0xFF)));
-
-                    // Store the index in the red channel (or any unused channel)
-                    indexedPixels[offset + 0] = 0; // Blue (unused)
-                    indexedPixels[offset + 1] = 0; // Green (unused)
-                    indexedPixels[offset + 2] = (byte)index; // Red (used as index)
-                    indexedPixels[offset + 3] = alpha; // Preserve alpha
+                    saveDetails.Text = $"Player Name: {loadedGameData.Player.Name}\n" +
+                                       $"Health: {loadedGameData.Player.Health}\n" +
+                                       $"Coins: {loadedGameData.Player.Coins}";
                 }
-            });
-
-            indexedBitmap.WritePixels(new Int32Rect(0, 0, width, height), indexedPixels, stride, 0);
-            return indexedBitmap;
+                else
+                {
+                    saveDetails.Text = "Failed to load save details.";
+                }
+            }
+            catch (Exception ex)
+            {
+                saveDetails.Text = $"Error loading save details: {ex.Message}";
+            }
         }
 
-        private static WriteableBitmap RecolorIndexedImage(WriteableBitmap indexedBitmap, Palette oldPalette, Palette newPalette)
+        private void LoadButton_Click(object sender, RoutedEventArgs e)
         {
-            var width = indexedBitmap.PixelWidth;
-            var height = indexedBitmap.PixelHeight;
-            var stride = width * 4;
-
-            var indexedPixels = new byte[height * stride];
-            indexedBitmap.CopyPixels(indexedPixels, stride, 0);
-
-            var recoloredBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
-            var recoloredPixels = new byte[height * stride];
-
-            // Precompute the color mapping
-            var colorMapping = oldPalette.Colors.Select((color, index) => newPalette.GetColor(index)).ToArray();
-
-            Parallel.For(0, height, y =>
+            if (saveFileSelector.SelectedItem == null)
             {
-                for (int x = 0; x < width; x++)
-                {
-                    var offset = y * stride + x * 4;
-                    var alpha = indexedPixels[offset + 3]; // Alpha channel
+                MessageBox.Show("Please select a save file to load.");
+                return;
+            }
 
-                    if (alpha == 0) // Fully transparent pixel
+            try
+            {
+                string selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+                GameSave loadedGameData = LoadGame(selectedFile);
+
+                if (loadedGameData != null)
+                {
+                    // Check if there's existing game data and confirm overwrite if necessary
+                    if (gameData != null && MessageBox.Show(
+                        "Looks like you already have player data.\nThis will overwrite your current data.",
+                        "Loading",
+                        MessageBoxButton.OKCancel,
+                        MessageBoxImage.Question) != MessageBoxResult.OK)
                     {
-                        Array.Clear(recoloredPixels, offset, 4);
-                        continue;
+                        // If the user cancels, do not update gameData
+                        MessageBox.Show("Load operation canceled.");
+                        return;
                     }
 
-                    var index = indexedPixels[offset + 2]; // Use red channel as the index
-                    var newColor = colorMapping[index];
-
-                    recoloredPixels[offset + 0] = newColor.B; // Blue
-                    recoloredPixels[offset + 1] = newColor.G; // Green
-                    recoloredPixels[offset + 2] = newColor.R; // Red
-                    recoloredPixels[offset + 3] = alpha;      // Preserve alpha
+                    // Update gameData only if the user confirms
+                    gameData = loadedGameData;
+                    MessageBox.Show($"Loaded successfully! Player Name: {loadedGameData.Player.Name}");
+                    saveFileOverlay.Visibility = Visibility.Collapsed; // Close the overlay
                 }
-            });
-
-            recoloredBitmap.WritePixels(new Int32Rect(0, 0, width, height), recoloredPixels, stride, 0);
-            return recoloredBitmap;
+                else
+                {
+                    MessageBox.Show("Failed to load the game.");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading the game: {ex.Message}");
+            }
         }
+
+        private void DeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (saveFileSelector.SelectedItem == null)
+            {
+                ShowMessage("Please select a save file to delete.");
+                return;
+            }
+
+            var selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+
+            if (MessageBox.Show("Are you sure you want to delete this save file?", "Confirm Delete", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                File.Delete(selectedFile);
+                ShowMessage("Save file deleted successfully.");
+                UpdateSaveFileList();
+            }
+        }
+
+        private void ResaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (saveFileSelector.SelectedItem == null)
+            {
+                ShowMessage("Please select a save file to resave.");
+                return;
+            }
+
+            var selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = Path.GetFileNameWithoutExtension(selectedFile),
+                DefaultExt = ".txt",
+                Filter = "Text Files (*.txt)|*.txt"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var newFilePath = dialog.FileName;
+                if (newFilePath != selectedFile)
+                {
+                    File.Copy(selectedFile, newFilePath);
+                    ShowMessage("Save file resaved successfully.");
+                    UpdateSaveFileList();
+                }
+            }
+        }
+
+        private void LoadExternalSave_Click(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select a Save File to Load",
+                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
+                DefaultExt = ".txt"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    var externalFilePath = openFileDialog.FileName;
+                    var loadedGameData = LoadGame(externalFilePath);
+
+                    if (loadedGameData != null)
+                    {
+                        gameData = loadedGameData;
+                        ShowMessage($"External save file loaded successfully!\nPlayer Name: {loadedGameData.Player.Name}");
+                    }
+                    else
+                    {
+                        ShowMessage("Failed to load the external save file.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ShowErrorMessage($"Error loading external save file: {ex.Message}");
+                }
+            }
+        }
+
+        private void CloseOverlay_Click(object sender, RoutedEventArgs e)
+        {
+            saveFileOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void UpdateSaveFileList()
+        {
+            var saveFiles = GetSaveFiles();
+            saveFileSelector.ItemsSource = saveFiles;
+
+            if (saveFiles.Length > 0)
+                saveFileSelector.SelectedIndex = 0;
+            else
+                saveDetails.Text = "Select a save file to view details.";
+        }
+
+        private void SaveGame(GameSave gameData, string saveFilePath)
+        {
+            if (gameData == null)
+                throw new InvalidOperationException("No game data to save.");
+
+            if (File.Exists(saveFilePath))
+            {
+                if (MessageBox.Show("This will overwrite the existing save file.", "Saving", MessageBoxButton.OKCancel) != MessageBoxResult.OK)
+                    return;
+            }
+
+            var sb = new StringBuilder();
+
+            // Serialize Player data
+            sb.AppendLine("[Player]");
+            sb.AppendLine($"Name={gameData.Player.Name}");
+            sb.AppendLine($"Health={gameData.Player.Health}");
+            sb.AppendLine($"Coins={gameData.Player.Coins}");
+            sb.AppendLine($"PositionX={gameData.Player.Position.X}");
+            sb.AppendLine($"PositionY={gameData.Player.Position.Y}");
+
+            // Serialize LevelProgress data
+            sb.AppendLine("[LevelProgress]");
+            sb.AppendLine($"CurrentLevel={gameData.LevelProgress.CurrentLevel}");
+            sb.AppendLine("UnlockedLevels=" + string.Join(",", gameData.LevelProgress.UnlockedLevels));
+
+            // Serialize Inventory data
+            sb.AppendLine("[Inventory]");
+            foreach (var item in gameData.Inventory)
+            {
+                sb.AppendLine($"{item.ItemName}={item.Quantity}");
+            }
+
+            try
+            {
+                File.WriteAllText(saveFilePath, sb.ToString());
+                ShowMessage("Game saved successfully!");
+            }
+            catch (Exception ex)
+            {
+                ShowErrorMessage($"Error saving game: {ex.Message}");
+            }
+        }
+
+        private GameSave LoadGame(string saveFilePath)
+        {
+            if (!File.Exists(saveFilePath))
+                throw new FileNotFoundException("Save file not found.", saveFilePath);
+
+            var lines = File.ReadAllLines(saveFilePath);
+            var loadedGameData = new GameSave();
+
+            bool inPlayerSection = false;
+            bool inLevelProgressSection = false;
+            bool inInventorySection = false;
+
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                if (line == "[Player]")
+                {
+                    inPlayerSection = true;
+                    inLevelProgressSection = false;
+                    inInventorySection = false;
+                    continue;
+                }
+                else if (line == "[LevelProgress]")
+                {
+                    inPlayerSection = false;
+                    inLevelProgressSection = true;
+                    inInventorySection = false;
+                    continue;
+                }
+                else if (line == "[Inventory]")
+                {
+                    inPlayerSection = false;
+                    inLevelProgressSection = false;
+                    inInventorySection = true;
+                    continue;
+                }
+
+                var parts = line.Split('=');
+                if (parts.Length != 2) continue;
+
+                if (inPlayerSection)
+                {
+                    switch (parts[0])
+                    {
+                        case "Name": loadedGameData.Player.Name = parts[1]; break;
+                        case "Health": loadedGameData.Player.Health = int.Parse(parts[1]); break;
+                        case "Coins": loadedGameData.Player.Coins = int.Parse(parts[1]); break;
+                        case "PositionX": loadedGameData.Player.Position.X = int.Parse(parts[1]); break;
+                        case "PositionY": loadedGameData.Player.Position.Y = int.Parse(parts[1]); break;
+                    }
+                }
+                else if (inLevelProgressSection)
+                {
+                    switch (parts[0])
+                    {
+                        case "CurrentLevel": loadedGameData.LevelProgress.CurrentLevel = int.Parse(parts[1]); break;
+                        case "UnlockedLevels":
+                            loadedGameData.LevelProgress.UnlockedLevels = parts[1].Split(',')
+                                .Where(a => !string.IsNullOrWhiteSpace(a))
+                                .Select(int.Parse)
+                                .ToList();
+                            break;
+                    }
+                }
+                else if (inInventorySection)
+                {
+                    loadedGameData.Inventory.Add(new Item { ItemName = parts[0], Quantity = int.Parse(parts[1]) });
+                }
+            }
+
+            return loadedGameData;
+        }
+
     }
 }
