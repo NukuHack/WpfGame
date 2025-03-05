@@ -1,16 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
+
 using System.IO;
-using System.Linq;
 using System.Text;
+using System.Linq;
+using System.Drawing;
+using System.Xml.Linq;
+using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+//using System.Windows.Shapes;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Threading;
-using System.Xml.Linq;
+using System.Windows.Navigation;
+using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 
 
 namespace pattyer
@@ -104,7 +114,7 @@ namespace pattyer
         {
             if (!File.Exists(filePath))
             {
-                MessageBox.Show("Map file not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Map file not found: {filePath}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -117,7 +127,7 @@ namespace pattyer
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load map: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ErrorMessage(ex,"Failed to load map");
             }
         }
 
@@ -130,6 +140,14 @@ namespace pattyer
                 {
                     Stretch = Stretch.UniformToFill
                 };
+                if (DORecolorBackground)
+                {
+                    var recoloredBitmap = RecolorImage(imagePath);
+                    BackgroundCanvas.Background = new ImageBrush(recoloredBitmap)
+                    {
+                        Stretch = Stretch.UniformToFill
+                    };
+                }
             }
             catch (Exception ex)
             {
@@ -138,20 +156,29 @@ namespace pattyer
         }
 
 
-
         public void RedrawMap()
         {
             if (gameMap == null || gameMap.Layers.Count == 0 || gameMap.TileSetImage == null) return;
 
             MapCanvas.Children.Clear();
-            collidableTiles.Clear(); // Reset list before populating
+            collidableTiles.Clear();
 
+            // Calculate scale to fit within the canvas
             double scaleX = ActualWidth / (gameMap.MapWidth * gameMap.TileWidth);
             double scaleY = ActualHeight / (gameMap.MapHeight * gameMap.TileHeight);
             double scale = Math.Min(scaleX, scaleY);
 
+            // Calculate scaled tile dimensions
             int newTileWidth = (int)(gameMap.TileWidth * scale);
             int newTileHeight = (int)(gameMap.TileHeight * scale);
+
+            // Calculate total scaled map dimensions
+            double scaledMapWidth = gameMap.MapWidth * newTileWidth;
+            double scaledMapHeight = gameMap.MapHeight * newTileHeight;
+
+            // Calculate centering offset
+            double offsetX = (ActualWidth - scaledMapWidth) / 2;
+            double offsetY = (ActualHeight - scaledMapHeight) / 2;
 
             int tilesetColumns = gameMap.TileSetImage.PixelWidth / gameMap.TileWidth;
 
@@ -160,14 +187,17 @@ namespace pattyer
                 for (int i = 0; i < layer.Count; i++)
                 {
                     int tileIndex = layer[i];
-                    if (tileIndex <= 0) continue;
+                    if (tileIndex == 0) continue;
 
-                    int x = i % gameMap.MapWidth;
-                    int y = i / gameMap.MapWidth;
+                    // Calculate tile position in map coordinates
+                    int tileX = i % gameMap.MapWidth;
+                    int tileY = i / gameMap.MapWidth;
 
+                    // Get tile bitmap
                     var tileBitmap = GetTileBitmap(tileIndex, tilesetColumns);
                     if (tileBitmap == null) continue;
 
+                    // Create image element
                     var tileImage = new Image
                     {
                         Source = tileBitmap,
@@ -176,20 +206,22 @@ namespace pattyer
                         Stretch = Stretch.Uniform
                     };
 
-                    Canvas.SetLeft(tileImage, x * newTileWidth);
-                    Canvas.SetTop(tileImage, y * newTileHeight);
+                    // Position the tile with centering offset
+                    Canvas.SetLeft(tileImage, tileX * newTileWidth + offsetX);
+                    Canvas.SetTop(tileImage, tileY * newTileHeight + offsetY);
 
+                    // Add to canvas
                     MapCanvas.Children.Add(tileImage);
 
-                    // Store collidable tile positions
-                    if (true)
-                    {
-                        collidableTiles.Add(new Rect(x * newTileWidth, y * newTileHeight, newTileWidth, newTileHeight));
-                    }
+                    // Store collidable tiles with proper coordinates
+                    collidableTiles.Add(new Rect(
+                        tileX * newTileWidth + offsetX,
+                        tileY * newTileHeight + offsetY,
+                        newTileWidth,
+                        newTileHeight));
                 }
             }
         }
-
         public CroppedBitmap GetTileBitmap(int gid, int tilesetColumns)
         {
             if (tileCache.ContainsKey(gid)) return tileCache[gid];

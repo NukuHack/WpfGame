@@ -1,16 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
+
 using System.IO;
-using System.Linq;
 using System.Text;
+using System.Linq;
+using System.Drawing;
+using System.Xml.Linq;
+using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+//using System.Windows.Shapes;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Threading;
-using System.Xml.Linq;
+using System.Windows.Navigation;
+using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 
 
 namespace pattyer
@@ -150,32 +160,18 @@ namespace pattyer
 
     public partial class MainWindow : System.Windows.Window
     {
+        public Player player;
+        public MatrixTransform playerTransform; // Use MatrixTransform instead of TransformGroup
+        public Image playerImage;
+
+        public readonly double _gravity = 5;
+        public double gravity = 5;
 
         public List<Rect> collidableTiles = new List<Rect>();
-        public void StartGameLoop()
-        {
-            AddPlayerDynamically("images/player_space.png");
 
-            var timer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS
-            };
-            timer.Tick += Timer_Tick;
-            timer.Start();
-        }
 
-        public void Timer_Tick(object sender, EventArgs e)
-        {
-            if (isGamePaused) return;
 
-            if (player != null)
-            {
-                player.UpdatePosition(collidableTiles); // Update player's position smoothly
-                player.ApplyGravity(_gravity);
-            }
 
-            UpdatePlayerPosition();
-        }
 
         public void UpdatePlayerPosition()
         {
@@ -223,9 +219,9 @@ namespace pattyer
         public void Hover(bool ease)
         {
             if (ease)
-                _gravity = 0.5;
+                gravity = _gravity/2;
             else
-                _gravity = 5;
+                gravity = _gravity;
         }
 
         public void AddPlayerDynamically(string PlayerImagePath)
@@ -238,77 +234,56 @@ namespace pattyer
 
             try
             {
-                // Load the player image
-                BitmapImage playerImageSource = new BitmapImage();
-                playerImageSource.BeginInit();
-                playerImageSource.UriSource = new Uri(PlayerImagePath, UriKind.Relative);
-                playerImageSource.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
-                playerImageSource.EndInit();
 
                 // Create the player object
                 player = new Player(GameCanvas.ActualWidth / 2, GameCanvas.ActualHeight * 0.2, 20, 46, 84);
 
-                // Create the player image element
-                playerImage = new Image
+                if (!DORecolorPlayer)
                 {
-                    Source = playerImageSource,
-                    Width = player.Width,
-                    Height = player.Height,
-                    RenderTransformOrigin = new Point(0.5, 0.5) // Set origin for rotation
-                };
+                    // Load the player image
+                    BitmapImage playerImageSource = new BitmapImage();
+                    playerImageSource.BeginInit();
+                    playerImageSource.UriSource = new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute);
+                    playerImageSource.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
+                    playerImageSource.EndInit();
 
+                    // Create the player image element
+                    playerImage = new Image
+                    {
+                        Source = playerImageSource,
+                        Width = player.Width,
+                        Height = player.Height,
+                        RenderTransformOrigin = new Point(0,0) // Set origin for rotation
+                    };
+                }
+                else
+                {
+                    // Create the recolored image
+                    var playerRecolored = RecolorImage(PlayerImagePath);
+
+                    // Create the player image element
+                    playerImage = new Image
+                    {
+                        Source = playerRecolored,
+                        Width = player.Width,
+                        Height = player.Height,
+                        RenderTransformOrigin = new Point(0, 0), // Set origin for rotation
+                    };
+                                        
+                }
+                
                 // Create the matrix transform for combined translation and rotation
                 playerTransform = new MatrixTransform();
                 playerImage.RenderTransform = playerTransform;
 
                 // Add the player image to the canvas
                 GameCanvas.Children.Add(playerImage);
-
+                
                 Console.WriteLine($"Player added successfully. Position: X={player.X}, Y={player.Y}");
             }
             catch (Exception ex)
             {
-                // Handle errors gracefully
-                MessageBox.Show($"Failed to load player image: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-
-
-
-        public void MainWindow_KeyDown(object sender, KeyEventArgs e)
-        {
-            Direction direction = Direction.None;
-
-            switch (e.Key)
-            {
-                case Key.W: direction = Direction.Up; break;
-                case Key.S: direction = Direction.Down; break;
-                case Key.A: direction = Direction.Left; break;
-                case Key.D: direction = Direction.Right; break;
-
-                case Key.Up: direction = Direction.Up; break;
-                case Key.Down: direction = Direction.Down; break;
-                case Key.Left: direction = Direction.Left; break;
-                case Key.Right: direction = Direction.Right; break;
-
-                case Key.Space: Hover(true); break;
-
-                case Key.Escape: MenuOpen(); break;
-            }
-
-
-            if (direction != Direction.None && player != null)
-            {
-                player.SetTargetPosition(direction, GameCanvas.ActualWidth, GameCanvas.ActualHeight, collidableTiles);
-            }
-        }
-
-        public void MainWindow_KeyUp(object sender, KeyEventArgs e)
-        {
-            switch (e.Key)
-            {
-                case Key.Space: Hover(false); break;
+                ErrorMessage(ex, "Failed to load player image");
             }
         }
 
@@ -322,7 +297,6 @@ namespace pattyer
                 UpdatePlayerPosition();
             }
         }
-
 
 
 
