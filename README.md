@@ -109,7 +109,7 @@ git clone https://github.com/NukuHack/WpfGame.git
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a pull request
 
-Looking for help with:  
+Looking for help with (not really):  
 ✅ Procedural generation  
 ✅ Sound system implementation  
 ✅ Performance optimizations  
