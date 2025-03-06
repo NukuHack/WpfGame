@@ -9,9 +9,18 @@ Some basic C#, made for some testing and to have fun developing it.
 - Most of the code and the entire readme was written by AI so don't expect much
 - Some parts may not work or some information might be false ... just like usual AI
 
+## 🚀 Jump To
+- [Key Features](#key-features)
+- [How to Play](#how-to-play)
+- [Installation](#installation)
+- [Technical Highlights](#technical-highlights)
+- [Contributing](#contributing)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
+
 ---
 
-## 🚀 Key Features
+## 🤖 Key Features
 
 - **Dynamic Movement System**  
   Smooth 8-directional movement with:
