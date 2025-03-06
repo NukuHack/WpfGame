@@ -110,7 +110,7 @@ git clone https://github.com/NukuHack/WpfGame.git
 5. Open a pull request
 
 Looking for help with:  
-✅ Procedural generation
+✅ Procedural generation  
 ✅ Sound system implementation  
 ✅ Performance optimizations  
 ✅ macOS/Linux compatibility layer
