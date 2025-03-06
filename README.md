@@ -10,13 +10,13 @@ Some basic C#, made for some testing and to have fun developing it.
 - Some parts may not work or some information might be false ... just like usual AI
 
 ## 🚀 Jump To
-- [Key Features](#key-features)
-- [How to Play](#how-to-play)
-- [Installation](#installation)
-- [Technical Highlights](#technical-highlights)
-- [Contributing](#contributing)
-- [Acknowledgments](#acknowledgments)
-- [License](#license)
+- 🤖 [Key Features](#key-features)
+- 🛠️ [Technical Highlights](#technical-highlights)
+- 🎮 [How to Play](#how-to-play)
+- 📦 [Getting Started](#getting-started)
+- 🤝 [Contributing](#contributing)
+- 🎨 [Acknowledgments](#acknowledgments)
+- 📜 [License](#license)
 
 ---
 
