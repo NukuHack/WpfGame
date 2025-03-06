@@ -91,7 +91,8 @@ git clone https://github.com/NukuHack/WpfGame.git
 - WPF development workload installed
 
 **3. Run the game**  
-Open `VoidVenture.sln` and press F5 to build/run
+- You could try running the `.exe` file in the `VoidVenture\bin\Debug`, but there is a chance I did not compile it to the latest version  
+  in that caseOpen `VoidVenture.sln` and press F5 to build/run
 
 ---
 
