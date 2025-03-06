@@ -45,14 +45,14 @@ Some basic C#, made for some testing and to have fun developing it.
 ## 🛠️ Technical Highlights
 
 **1. Collision Detection System**  
-Tile-based collision using `Rect` intersections with dynamic bounds checking.
+- Tile-based collision using `Rect` intersections with dynamic bounds checking.
 
-**2. Palette-Based Recoloring**
-Advanced image processing pipeline.
+**2. Palette-Based Recoloring**  
+- Advanced image processing pipeline.
 
-**3. Game Loop Management**
-60 FPS update cycle using WPF DispatcherTimer.
-This is important - if the game can not run at 60 fps the gravity and other movement might break.
+**3. Game Loop Management**  
+- 60 FPS update cycle using WPF DispatcherTimer.  
+- This is important - if the game can not run at 60 fps the gravity and other movement might break.
 
 ---
 
