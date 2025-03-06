@@ -9,7 +9,7 @@ Some basic C#, made for some testing and to have fun developing it.
 - Most of the code and the entire readme was written by AI so don't expect much
 - Some parts may not work or some information might be false ... just like usual AI
 
-## 🚀 Jump To
+## 🚀 Jump To 
 - 🤖 [Key Features](#key-features)
 - 🛠️ [Technical Highlights](#technical-highlights)
 - 🎮 [How to Play](#how-to-play)
@@ -21,7 +21,7 @@ Some basic C#, made for some testing and to have fun developing it.
 ---
 
 <a id="key-features"></a>
-## 🤖 Key Features
+## 🤖 Key Features 
 
 - **Dynamic Movement System**  
   Smooth 8-directional movement with:
@@ -52,7 +52,8 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 🛠️ Technical Highlights {#technical-highlights}
+<a id="technical-highlights"></a>
+## 🛠️ Technical Highlights 
 
 **1. Collision Detection System**  
 - Tile-based collision using `Rect` intersections with dynamic bounds checking.
@@ -66,7 +67,8 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 🎮 How to Play {#how-to-play}
+<a id="how-to-play"></a>
+## 🎮 How to Play 
 
 1. **Movement**:  
    - Arrow keys or WASD to move  
@@ -80,7 +82,8 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 📦 Getting Started {#getting-started}
+<a id="getting-started"></a>
+## 📦 Getting Started 
 
 **1. Clone the repository**  
 ```bash
@@ -97,7 +100,8 @@ git clone https://github.com/NukuHack/WpfGame.git
 
 ---
 
-## 🤝 Contributing {#contributing}
+<a id="contributing"></a>
+## 🤝 Contributing 
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -113,7 +117,7 @@ Looking for help with:
 
 ---
 
-## 📚 Documentation {#documentation}
+## 📚 Documentation 
 
 - [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/)
 - [TMX Map Format](https://doc.mapeditor.org/en/stable/reference/tmx-map-format/)
@@ -121,7 +125,8 @@ Looking for help with:
 
 ---
 
-## 🎨 Acknowledgments {#acknowledgments}
+<a id="acknowledgments"></a>
+## 🎨 Acknowledgments 
 
 Special thanks to:  
 - nothing yet ...
@@ -129,7 +134,8 @@ Special thanks to:
 
 ---
 
-## 📜 License {#license}
+<a id="license"></a>
+## 📜 License 
 
 [MIT License](LICENSE) - Free to use, modify, and distribute.  
 *Most of the code (and this readme) are generated with assistance from AI tools*
