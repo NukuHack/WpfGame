@@ -20,7 +20,7 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 🤖 Key Features
+## 🤖 Key Features {#key-features}
 
 - **Dynamic Movement System**  
   Smooth 8-directional movement with:
@@ -51,7 +51,7 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 🛠️ Technical Highlights
+## 🛠️ Technical Highlights {#technical-highlights}
 
 **1. Collision Detection System**  
 - Tile-based collision using `Rect` intersections with dynamic bounds checking.
@@ -65,7 +65,7 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 🎮 How to Play
+## 🎮 How to Play {#how-to-play}
 
 1. **Movement**:  
    - Arrow keys or WASD to move  
@@ -79,7 +79,7 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 📦 Getting Started
+## 📦 Getting Started {#getting-started}
 
 **1. Clone the repository**  
 ```bash
@@ -96,7 +96,7 @@ git clone https://github.com/NukuHack/WpfGame.git
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing {#contributing}
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -112,7 +112,7 @@ Looking for help with:
 
 ---
 
-## 📚 Documentation
+## 📚 Documentation {#documentation}
 
 - [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/)
 - [TMX Map Format](https://doc.mapeditor.org/en/stable/reference/tmx-map-format/)
@@ -120,7 +120,7 @@ Looking for help with:
 
 ---
 
-## 🎨 Acknowledgments
+## 🎨 Acknowledgments {#acknowledgments}
 
 Special thanks to:  
 - nothing yet ...
@@ -128,7 +128,7 @@ Special thanks to:
 
 ---
 
-## 📜 License
+## 📜 License {#license}
 
 [MIT License](LICENSE) - Free to use, modify, and distribute.  
 *Most of the code (and this readme) are generated with assistance from AI tools*
