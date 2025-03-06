@@ -20,8 +20,7 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## 🤖 Key Features 
-<a id="key-features"></a>
+<a id="key-features"></a>## 🤖 Key Features 
 
 - **Dynamic Movement System**  
   Smooth 8-directional movement with:
