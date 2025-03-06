@@ -1,4 +1,9 @@
-# WpfGame
+# VoidVenture - A WPF Platformer Adventure
+
+[![WPF](https://img.shields.io/badge/Powered%20by-WPF-blue)](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/)
+[![C#](https://img.shields.io/badge/C%23-5.0+-brightgreen)](https://docs.microsoft.com/en-us/dotnet/csharp/)
+
+A procedurally enhanced 2D platformer built with C# and WPF, featuring dynamic color systems and modular game architecture. Perfect for learning WPF game development patterns and image manipulation techniques.
 
 Some basic C#, made for some testing and to have fun developing it.
 - Most of the code and the entire readme was written by AI so don't expect much
@@ -6,65 +11,114 @@ Some basic C#, made for some testing and to have fun developing it.
 
 ---
 
-## About the Game
+## 🚀 Key Features
 
-WpfGame is a simple yet engaging game built using C# and the Windows Presentation Foundation (WPF) framework. It was created as a personal project to explore the capabilities of WPF while also providing an enjoyable gaming experience. Whether you're a beginner or an experienced developer, this project aims to showcase how WPF can be used to create interactive applications with ease.
+- **Dynamic Movement System**  
+  Smooth 8-directional movement with:
+  - WASD/Arrow key controls
+  - Momentum-based gravity system
+  - Collision detection against tilemaps
+  - Directional sprite rotation
 
----
+- **Advanced Color Engine**  
+  Real-time palette swapping system that:
+  - Converts images to indexed color formats
+  - Maintains 256-color compatibility
+  - Supports procedural color randomization
 
-## Features
+- **Persistent Save System**  
+  - Multiple save file support
+  - Data serialization with versioning
+  - Save file import/export functionality
+  - In-game save management UI
 
-- **Interactive Gameplay:** Enjoy a smooth and responsive gameplay experience.
-- **Customizable UI:** Leverage the power of WPF to create visually appealing interfaces.
-- **Easy-to-Understand Code:** The codebase is structured and well-documented, making it easy for others to learn from or contribute to.
-- **Cross-Platform Potential:** While built for Windows, the project serves as a foundation that can be expanded for broader compatibility.
-
----
-
-## How to Play
-
-1. Launch the application.
-2. Follow the on-screen instructions to start playing.
-3. Experiment with different features and controls to fully experience the game.
-
----
-
-
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/NukuHack/WpfGame.git
-2.
-- **C#:** The primary programming language for logic and functionality.
-- **WPF (Windows Presentation Foundation):** A UI framework for building rich desktop applications.
-- **XAML:** Used for designing the user interface in a declarative manner.
+- **Modular Architecture**  
+  Clean separation of concerns with:
+  - `Player` physics/movement class
+  - `MathUtils` helper math module
+  - `Palette` color management system
+  - `Saves` - planned saves
+  - Some extra TMX map loading support
 
 ---
 
-## Contributing
+## 🛠️ Technical Highlights
 
-If you'd like to contribute to WpfGame, feel free to fork the repository and submit a pull request. Here are some ways you can help:
-- Add new features or game mechanics.
-- Improve the user interface design.
-- Optimize performance or fix bugs.
-- Write additional documentation to help others understand the code.
+**1. Collision Detection System**  
+Tile-based collision using `Rect` intersections with dynamic bounds checking.
 
----
+**2. Palette-Based Recoloring**
+Advanced image processing pipeline.
 
-## Acknowledgments
-
-This project wouldn't have been possible without the following resources:
-- Microsoft's [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/) for guidance and tutorials.
-- The vibrant community of developers who share their knowledge and solutions online.
-- And Of course the AI who made atleast 80% of the stuff in here
+**3. Game Loop Management**
+60 FPS update cycle using WPF DispatcherTimer.
+This is important - if the game can not run at 60 fps the gravity and other movement might break.
 
 ---
 
-## License
+## 🎮 How to Play
 
-This project is not licensed. You may steal what you want.
+1. **Movement**:  
+   - Arrow keys or WASD to move  
+   - Spacebar for hover ability  
+   - ESC to open menu
+
+2. **Menu Controls**:  
+   - Load/Save/Delete game progress  
+   - Import external save files  
+   - Customize game settings
 
 ---
 
-Thank you for checking out my WpfGame! I hope you find it both entertaining and educational.
+## 📦 Getting Started
 
+**1. Clone the repository**  
+```bash
+git clone https://github.com/NukuHack/WpfGame.git
+```
+
+**2. Requirements**  
+- Visual Studio 2022+ with .NET 5.0 SDK
+- WPF development workload installed
+
+**3. Run the game**  
+Open `VoidVenture.sln` and press F5 to build/run
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add new feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a pull request
+
+Looking for help with:  
+✅ Procedural generation
+✅ Sound system implementation  
+✅ Performance optimizations  
+✅ macOS/Linux compatibility layer
+
+---
+
+## 📚 Documentation
+
+- [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/)
+- [TMX Map Format](https://doc.mapeditor.org/en/stable/reference/tmx-map-format/)
+- [.NET Image Processing Guide](https://docs.microsoft.com/en-us/dotnet/desktop/winforms/advanced/image-processing)
+
+---
+
+## 🎨 Acknowledgments
+
+Special thanks to:  
+- nothing yet ...
+
+
+---
+
+## 📜 License
+
+[MIT License](LICENSE) - Free to use, modify, and distribute.  
+*Most of the code (and this readme) are generated with assistance from AI tools*
