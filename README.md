@@ -121,7 +121,6 @@ Looking for help with:
 
 - [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/)
 - [TMX Map Format](https://doc.mapeditor.org/en/stable/reference/tmx-map-format/)
-- [.NET Image Processing Guide](https://docs.microsoft.com/en-us/dotnet/desktop/winforms/advanced/image-processing)
 
 ---
 
