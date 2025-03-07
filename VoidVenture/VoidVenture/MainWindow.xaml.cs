@@ -65,7 +65,7 @@ namespace VoidVenture
         {
 
 
-            UpdateViewportSize();
+            RedrawMap();
 
 
             Player_RePos();
