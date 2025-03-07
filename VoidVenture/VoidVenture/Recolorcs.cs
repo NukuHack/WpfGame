@@ -193,10 +193,12 @@ namespace VoidVenture
                 // Get the first frame (icons can have multiple sizes)
                 bitmapSource = decoder.Frames[0];
             }
+            /*
             else if (extension == ".ani")
             {
                 return LoadAniFrame(filePath);
             }
+            */
             else if (extension is ".png")
             {
                 // Fallback to BitmapImage for other formats
@@ -277,7 +279,81 @@ namespace VoidVenture
             return output;
         }
 
-        
+
+
+        public static Cursor CreateCursorFromBitmap(BitmapSource bitmap, int xHotSpot, int yHotSpot)
+        {
+            var convertedBitmap = new FormatConvertedBitmap(bitmap, PixelFormats.Bgra32, null, 0);
+            var stream = new MemoryStream();
+
+            using (var writer = new BinaryWriter(stream, Encoding.Default, true))
+            {
+                // 1. Write CUR Header (6 bytes)
+                writer.Write((short)0);     // Reserved (must be 0)
+                writer.Write((short)2);     // Type: 2 = cursor
+                writer.Write((short)1);     // Number of images
+
+                // 2. Write Directory Entry (16 bytes)
+                writer.Write((byte)(convertedBitmap.PixelWidth > 255 ? 0 : convertedBitmap.PixelWidth));
+                writer.Write((byte)(convertedBitmap.PixelHeight > 255 ? 0 : convertedBitmap.PixelHeight));
+                writer.Write((byte)0);      // Color count (0 = 32bpp)
+                writer.Write((byte)0);      // Reserved
+                writer.Write((ushort)xHotSpot);  // Hotspot X
+                writer.Write((ushort)yHotSpot);  // Hotspot Y
+                writer.Write(GetImageDataSize(convertedBitmap)); // Image data size
+                writer.Write(22);                // Data offset (header + entry = 22)
+
+                // 3. Write BITMAPINFOHEADER (40 bytes)
+                int width = convertedBitmap.PixelWidth;
+                int height = convertedBitmap.PixelHeight;
+                writer.Write(40);               // biSize (header size)
+                writer.Write(width);            // biWidth
+                writer.Write(height);           // biHeight (XOR data only)
+                writer.Write((short)1);         // biPlanes (must be 1)
+                writer.Write((short)32);        // biBitCount (32bpp)
+                writer.Write(0);                // biCompression (BI_RGB)
+                writer.Write(0);                // biSizeImage (uncompressed)
+                writer.Write(0);                // biXPelsPerMeter
+                writer.Write(0);                // biYPelsPerMeter
+                writer.Write(0);                // biClrUsed
+                writer.Write(0);                // biClrImportant
+
+                // 4. Write XOR (Color) Data (BGRA32 format, bottom-up row order)
+                int stride = width * 4;
+                var pixelData = new byte[stride * height];
+
+                // Copy rows in reverse order (bottom-up)
+                for (int row = 0; row < height; row++)
+                {
+                    convertedBitmap.CopyPixels(
+                        new Int32Rect(0, height - 1 - row, width, 1),
+                        pixelData,
+                        stride,
+                        row * stride);
+                }
+                writer.Write(pixelData);
+
+                // 5. Write AND (Mask) Data (1bpp monochrome, bottom-up row order)
+                int maskStride = (width + 31) / 32 * 4; // DWORD alignment
+                var maskData = new byte[maskStride * height];
+                writer.Write(maskData);
+            }
+
+            stream.Position = 0;
+            // quick file save - used for testing
+            //File.WriteAllBytes("test.cur", stream.ToArray());
+            return new Cursor(stream);
+        }
+
+        // help for .cur re converting
+        public static int GetImageDataSize(BitmapSource bitmap)
+        {
+            int headerSize = 40; // BITMAPINFOHEADER size
+            int xorSize = bitmap.PixelWidth * bitmap.PixelHeight * 4;
+            int maskSize = ((bitmap.PixelWidth + 31) / 32 * 4) * bitmap.PixelHeight;
+            return headerSize + xorSize + maskSize;
+        }
+        /*
         private static WriteableBitmap LoadAniFrame(string filePath, int frameIndex = 0)
         {
             try
@@ -368,7 +444,7 @@ namespace VoidVenture
                 cursStream.Close();
                 stream.Close();
                 reader.Close();
-                return ConvertToWriteableBitmap(decoder.Frames[0]);
+                return new BitmapSource(decoder.Frames[0]);
             }
             catch (Exception ex)
             {
@@ -390,16 +466,6 @@ namespace VoidVenture
             }
         }
 
-        private static WriteableBitmap ConvertToWriteableBitmap(BitmapSource source)
-        {
-            if (source.Format == PixelFormats.Bgra32)
-                return new WriteableBitmap(source);
-            else if (source.Format == PixelFormats.Indexed8)
-                return Convert8BitToBGRA(source);
-            else
-                throw new NotSupportedException($"Unsupported pixel format: {source.Format}");
-        }
-
         [StructLayout(LayoutKind.Sequential, Pack = 2)]
         private struct ANIHeader
         {
@@ -414,7 +480,7 @@ namespace VoidVenture
             public uint cTransparentColor;
             public uint cFlags;
         }
-        
+        */
 
 
         public WriteableBitmap ConvertToIndexed(WriteableBitmap originalBitmap, Palette palette)

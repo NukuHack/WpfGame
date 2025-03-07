@@ -35,6 +35,7 @@ namespace VoidVenture
     {
         public bool DORecolorBackground = true;
         public bool DORecolorPlayer = true;
+        public bool isMenuOpened = false;
 
         // will make the popup and selecting stuff and all that but not now
 
@@ -59,14 +60,24 @@ namespace VoidVenture
             MessageBox.Show($"Error: {message}");
         }
 
+        public void TryMenuSwitch()
+        {
+            if (!isMenuOpened)
+                MenuOpen();
+            else
+                MenuClose();
+        }
         public void MenuOpen()
         {
+            PauseGame();
+            isMenuOpened = true;
             try
             {
                 var saveFiles = GetSaveFiles();
                 if (saveFiles.Length == 0)
                 {
                     ShowMessage("No save files found in the save directory.");
+                    ResumeGame();
                     return;
                 }
 
@@ -79,9 +90,16 @@ namespace VoidVenture
                 ShowErrorMessage(ex.Message);
             }
         }
-
+        public void MenuClose()
+        {
+            isMenuOpened = false;
+            saveFileOverlay.Visibility = Visibility.Collapsed; // Close the overlay
+            ResumeGame();
+        }
+        
         public void SaveData()
         {
+            PauseGame();
             try
             {
                 CheckSavePath();
@@ -184,7 +202,7 @@ namespace VoidVenture
                     // Update gameData only if the user confirms
                     gameData = loadedGameData;
                     MessageBox.Show($"Loaded successfully! Loaded: {loadedGameData.Saved}");
-                    saveFileOverlay.Visibility = Visibility.Collapsed; // Close the overlay
+                    MenuClose();
                 }
                 else
                 {
@@ -279,7 +297,7 @@ namespace VoidVenture
 
         private void CloseOverlay_Click(object sender, RoutedEventArgs e)
         {
-            saveFileOverlay.Visibility = Visibility.Collapsed;
+            MenuClose();
         }
 
         private void UpdateSaveFileList()
@@ -298,13 +316,18 @@ namespace VoidVenture
             if (gameData == null)
             {
                 GenPlayerData();
-                throw new InvalidOperationException("No game data to save.");
+                MessageBox.Show("No game data to save.");
+                ResumeGame();
+                return;
             }
 
             if (File.Exists(saveFilePath))
             {
                 if (MessageBox.Show("This will overwrite the existing save file.", "Saving", MessageBoxButton.OKCancel) != MessageBoxResult.OK)
+                {
+                    ResumeGame();
                     return;
+                }
             }
             var sb = new StringBuilder();
 
@@ -323,6 +346,7 @@ namespace VoidVenture
             {
                 File.WriteAllText(saveFilePath, sb.ToString());
                 ShowMessage("Game saved successfully!");
+                ResumeGame();
             }
             catch (Exception ex)
             {

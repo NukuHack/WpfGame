@@ -219,7 +219,7 @@ namespace VoidVenture
         public void Hover(bool ease)
         {
             if (ease)
-                gravity = _gravity / 2;
+                gravity = _gravity * 0.25;
             else
                 gravity = _gravity;
         }

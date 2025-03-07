@@ -21,11 +21,14 @@ using System.Windows.Threading;
 using System.Windows.Navigation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
+using Microsoft.Win32.SafeHandles;
+using System.Windows.Interop;
 
 
 
 namespace VoidVenture
 {
+
     public partial class MainWindow : Window
     {
         public Random rnd = new Random();
@@ -46,21 +49,6 @@ namespace VoidVenture
 
             this.Loaded += MainWindow_Loded;
 
-
-            this.SizeChanged += MainWindow_SizeChanged;
-            this.KeyDown += MainWindow_KeyDown;
-            this.KeyUp += MainWindow_KeyUp;
-
-            CloseButton.Click += CloseButton_Click;
-            MenuButton.Click += MenuButton_Click;
-            SaveButton.Click += SaveButton_Click;
-
-            closeOverlay.Click += CloseOverlay_Click;
-            loadButton.Click += LoadButton_Click;
-            deleteButton.Click += DeleteButton_Click;
-            resaveButton.Click += ResaveButton_Click;
-            loadExternalSave.Click += LoadExternalSave_Click;
-            saveFileSelector.SelectionChanged += SaveFileSelector_SelectionChanged;
         }
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -75,8 +63,11 @@ namespace VoidVenture
 
         public void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            // Redraw the map and reposition the player
-            RedrawMap();
+
+
+            UpdateViewportSize();
+
+
             Player_RePos();
 
             // Update the canvas sizes to match the actual window size
@@ -94,15 +85,32 @@ namespace VoidVenture
         {
             LoadMap("maps/default.tmx");
 
-            //var x = RecolorImage("Phlame_Arrow.cur");
-            // not works with the cursor appending
-            //Cursor = new Cursor(x);
+            // does work but it makes the image kinda crappy
+            //Cursor = CreateCursorFromBitmap(RecolorImage("Phlame_Arrow.cur"), 0, 0);
+            //Cursor = new Cursor(@"C:\Users\nukuh\Desktop\c\app\VoidVenture\VoidVenture\bin\Debug\Phlame_Arrow.cur");
 
+            // not works - too old file format I don't wanna research it more
             //var y = RecolorImage("Busy.ani");
-            // not works - too old file format doN't wanna research it more
 
+            // should work but did not test it 
             //var z = RecolorImage("smile.cur");
-            // should work
+
+
+
+            this.SizeChanged += MainWindow_SizeChanged;
+            this.KeyDown += MainWindow_KeyDown;
+            this.KeyUp += MainWindow_KeyUp;
+
+            CloseButton.Click += CloseButton_Click;
+            MenuButton.Click += MenuButton_Click;
+            SaveButton.Click += SaveButton_Click;
+
+            closeOverlay.Click += CloseOverlay_Click;
+            loadButton.Click += LoadButton_Click;
+            deleteButton.Click += DeleteButton_Click;
+            resaveButton.Click += ResaveButton_Click;
+            loadExternalSave.Click += LoadExternalSave_Click;
+            saveFileSelector.SelectionChanged += SaveFileSelector_SelectionChanged;
 
             StartGameLoop();
 
@@ -153,7 +161,7 @@ namespace VoidVenture
 
                 case Key.Space: Hover(true); break;
 
-                case Key.Escape: MenuOpen(); break;
+                case Key.Escape: TryMenuSwitch(); break;
             }
 
 
