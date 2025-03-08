@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 
 using System.IO;
 using System.Text;
 using System.Linq;
 using System.Drawing;
+using System.Numerics;
 using System.Xml.Linq;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ using System.Windows.Threading;
 using System.Windows.Navigation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
+
 using Microsoft.Win32.SafeHandles;
 using System.Windows.Interop;
 
