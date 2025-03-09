@@ -20,6 +20,7 @@ using System.Windows.Media.Media3D;
 
 using Microsoft.Win32.SafeHandles;
 using System.Windows.Interop;
+using System.Reflection;
 
 namespace TerrainGen
 {
@@ -40,9 +41,11 @@ namespace TerrainGen
         public double WorldMulti = 3.5; // wanted it to be random between 1 and 5 but decided to use a constant :/
         public double[,] noiseDebug;
         public bool doDebug = false;
-        private uint[] pixels;
+        private uint[,] pixels;
+        private double[] waterLUT;
         private Point? _moveStartPoint;
         private int octaveEase = 10;
+        public bool inMouseDown = false;
         private double[] octaveFrequencies;
         private double[] octaveAmplitudes;
         private double[] octaveOffsets;
@@ -75,6 +78,7 @@ namespace TerrainGen
 
             this.terrainImage.MouseMove += TerrainImage_MouseMove;
             this.terrainImage.MouseLeftButtonDown += (s,e) => { UpdateInfoDisplay(e); } ;
+            this.terrainImage.MouseLeftButtonUp += TerrainImage_MouseLeftButtonUp;
             this.infoText.MouseDown += InfoText_MouseDown;
 
             this.MouseWheel += (s, e) => { MainWindow_MouseWheel(e); };
@@ -86,8 +90,8 @@ namespace TerrainGen
 
             SizeChanged += (s, e) =>
             {
-                currentWidth = (int)e.NewSize.Width;
-                currentHeight = (int)e.NewSize.Height;
+                currentWidth = (int)ActualWidth;
+                currentHeight = (int)ActualHeight;
                 noiseDebug = new double[currentWidth, 2];
                 RenderTerrain();
             };
@@ -97,68 +101,78 @@ namespace TerrainGen
             Focus();
         }
 
+        private void TerrainImage_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            inMouseDown = false;
+            Task.Delay(1000).ContinueWith(_ => this.Dispatcher.Invoke(() => {
+                if (!inMouseDown)
+                    infoText.Visibility = Visibility.Collapsed;
+            }));
+        }
+
         private void UpdateInfoDisplay(MouseEventArgs e)
         {
             // Get click position relative to the terrain image
             Point clickPoint = e.GetPosition(terrainImage);
 
-            // Convert to world coordinates (account for scaling and panning)
-            double worldX = (clickPoint.X / Scale); // no need to use offset x because only the offset-ed values are saved in "columnHeights"
-            double worldY = (clickPoint.Y / Scale);
+            // Convert screen coordinates to bitmap pixel coordinates
+            double scaleX = currentWidth / terrainImage.ActualWidth;
+            double scaleY = currentHeight / terrainImage.ActualHeight;
+            int x = (int)(clickPoint.X * scaleX);
+            int y = (int)(clickPoint.Y * scaleY);
 
-            // Validate column index
-            int xIndex = (int)worldX;
-            if (xIndex < 0 || xIndex >= columnHeights.Length)
+            // Bounds check
+            if (x < 0 || x >= currentWidth || y < 0 || y >= currentHeight)
+            {
+                infoText.Visibility = Visibility.Collapsed;
                 return;
-
-            // Get terrain height at this column (already includes scaling)
-            double terrainHeight = columnHeights[xIndex];
-
-            // Calculate water level in UI coordinates
-            double waterHeight = (currentHeight - WaterLevel);
-            double waterY = waterHeight * Scale;
-
-            if (doDebug)
-            {
-                label1.Content = $"click pos y: {clickPoint.Y}";
-                label2.Content = $"scaled y: {worldY}";
-                label3.Content = $"terrain y: {terrainHeight}";
-                label4.Content = $"water y: {waterHeight}";
-                label5.Content = $"water scaled y: {waterY}";
             }
 
-            // Determine terrain type based on world coordinates
-            if (worldY>terrainHeight)// Click is above terrain
+            // Get precomputed values
+            double terrainHeight = columnHeights[x];
+            double waterLevel = waterLUT[x];
+
+            // Determine material
+            string material;
+            if (y < terrainHeight)
+                material = y > waterLevel ? "Water" : "Air";
+            else
             {
-                if (worldY<terrainHeight + GrassDepth)
-                    if (worldY > waterY - 5)
-                        infoText.Content = "click:\nSand";
-                    else
-                        infoText.Content = "click:\nGrass";
-                else if (worldY<terrainHeight + DirtDepth)
-                    infoText.Content = "click:\nDirt";
+                double delta = y - terrainHeight;
+                if (delta <= GrassDepth)
+                    // Check if near water edge (replicate "sunk" condition)
+                    material = (y > waterLevel - 5) ? "Sand" : "Grass";
+                else if (delta <= DirtDepth)
+                    material = "Dirt";
                 else
-                    infoText.Content = "click:\nStone";
-            }
-            else// Click is below terrain
-            {
-                if (worldY>waterY)
-                    infoText.Content = "click:\nWater";
-                else
-                    infoText.Content = "click:\nAir";
+                    material = "Stone";
             }
 
-            // Position info text
-            Canvas.SetLeft(infoText, clickPoint.X + 5);
-            Canvas.SetTop(infoText, clickPoint.Y - 5 - infoText.Height);
+            // Update UI
+            infoText.Content = $"Clicked:\n{material}";
+            clickPoint = e.GetPosition(TerrainCanvas);
+            Canvas.SetLeft(infoText, (clickPoint.X + 5));
+            Canvas.SetTop(infoText, (clickPoint.Y - 5 - infoText.Height));
             infoText.Visibility = Visibility.Visible;
 
+            // Debug output
+            if (doDebug)
+            {
+                label1.Content = $"click: {x:F1}, {y:F1}";
+                label2.Content = $"terrain: {terrainHeight:F1}, water: {waterLevel:F1}";
+                label3.Content = $"delta: {y - terrainHeight:F1}";
+                label4.Content = $"grass: {GrassDepth:F1}, dirt: {DirtDepth:F1}";
+                label5.Content = $"bounds: {x}/{currentWidth}, {y}/{currentHeight}";
+            }
         }
 
         private void TerrainImage_MouseMove(object sender, MouseEventArgs e)
         {
             if(e.LeftButton == MouseButtonState.Pressed)
+            {
+                inMouseDown = true;
                 UpdateInfoDisplay(e);
+            }
 
         }
 
@@ -194,8 +208,8 @@ namespace TerrainGen
 
             // Calculate new transform origin
             Point mousePos = e.GetPosition(terrainImage);
-            double relativeX = mousePos.X / terrainImage.ActualWidth;
-            double relativeY = mousePos.Y / terrainImage.ActualHeight;
+            double relativeX = mousePos.X / currentWidth;
+            double relativeY = mousePos.Y / currentHeight;
 
             // Update transform
             terrainScaleTransform.ScaleX = Scale;
@@ -276,10 +290,10 @@ namespace TerrainGen
                 sb.AppendLine($"Seed: {seed}");
                 sb.AppendLine($"Offset: {offsetX:F2}_X {offsetY:F2}_Y");
                 sb.AppendLine($"WorldMulti: {WorldMulti}");
-                sb.AppendLine("X | Noise | Height");
+                sb.AppendLine("X | Noise | Height | End ");
 
                 for (int x = 0; x < Math.Min(currentWidth, 8000); x += 40)
-                    sb.AppendLine($"{x,3} | {noiseDebug[x, 0],5:F1} | {noiseDebug[x, 1],5:F1}");
+                    sb.AppendLine($"{x,3} | {noiseDebug[x, 0],5:F1} | {noiseDebug[x, 1],5:F1} | {columnHeights[x],5:F1}");
 
                 MessageBox.Show(sb.ToString(), "Terrain Debug Info");
             }
@@ -295,15 +309,22 @@ namespace TerrainGen
         private void RenderTerrain()
         {
             // Calculate waterY considering scale and vertical offset
-            double waterY = offsetY + (currentHeight - WaterLevel) * Scale;
-            int size = 100;
 
             // Reuse or recreate bitmap and pixel array
             if (terrainBitmap == null || terrainBitmap.PixelWidth != currentWidth || terrainBitmap.PixelHeight != currentHeight)
             {
-                terrainBitmap = new WriteableBitmap(currentWidth, currentHeight, size, size, PixelFormats.Bgra32, null);
-                pixels = new uint[currentWidth * currentHeight];
+                // Get system DPI
+                var source = PresentationSource.FromVisual(this);
+                double dpiX = 96.0, dpiY = 96.0;
+                if (source != null)
+                {
+                    dpiX = 96.0 * source.CompositionTarget.TransformToDevice.M11;
+                    dpiY = 96.0 * source.CompositionTarget.TransformToDevice.M22;
+                }
+
+                terrainBitmap = new WriteableBitmap(currentWidth, currentHeight, dpiX, dpiY, PixelFormats.Bgra32, null);
             }
+            pixels = new uint[currentHeight, currentWidth];
 
             // Recompute octave parameters if needed
             if (octaveFrequencies == null || octaveFrequencies.Length != 10 || Math.Abs(octaveFrequencies[0] - 0.003 * Scale) > 1e-6)
@@ -357,9 +378,7 @@ namespace TerrainGen
             Parallel.For(0, currentWidth, x =>
             {
                 double terrainHeight = columnHeights[x];
-                double noise = noiseGenerator.Noise1D(x * 0.0005);
-                // Scale noise perturbation with terrain scale
-                double localWaterY = waterY + noise * 50 * Scale;
+                double localWaterY = waterLUT[x];
 
                 for (int y = 0; y < currentHeight; y++)
                 {
@@ -378,40 +397,49 @@ namespace TerrainGen
                     }
                     else
                     {
-                        double delta = y - terrainHeight;
-                        double grass = Math2.Clamp(delta * invGrass, 0, 1);
-                        double dirt = Math2.Clamp((delta - GrassDepth) * invDirt, 0, 1);
-                        double stone = Math2.Clamp((delta - DirtDepth) * invStone, 0, 1);
-                        bool sunk = y > localWaterY - 5;
+                        if(y< terrainHeight-DirtDepth-5)
+                        {
+                            color = 0xFF000000 | ((uint)StoneColor.R << 16) | ((uint)StoneColor.G << 8) | StoneColor.B;
+                        }
+                        else
+                        {
+                            double delta = y - terrainHeight;
+                            double grass = Math2.Clamp(delta * invGrass, 0, 1);
+                            double dirt = Math2.Clamp((delta - GrassDepth) * invDirt, 0, 1);
+                            double stone = Math2.Clamp((delta - DirtDepth) * invStone, 0, 1);
+                            bool sunk = y > localWaterY - 5;
 
-                        byte baseR = sunk ? gradientConfig.SandColor.R : gradientConfig.GrassColor.R;
-                        byte baseG = sunk ? gradientConfig.SandColor.G : gradientConfig.GrassColor.G;
-                        byte baseB = sunk ? gradientConfig.SandColor.B : gradientConfig.GrassColor.B;
+                            byte baseR = sunk ? gradientConfig.SandColor.R : gradientConfig.GrassColor.R;
+                            byte baseG = sunk ? gradientConfig.SandColor.G : gradientConfig.GrassColor.G;
+                            byte baseB = sunk ? gradientConfig.SandColor.B : gradientConfig.GrassColor.B;
 
-                        byte r = (byte)(
-                            baseR * (1 - grass) +
-                            gradientConfig.DirtColor.R * grass * (1 - dirt) +
-                            gradientConfig.StoneColor.R * dirt * (1 - stone) +
-                            gradientConfig.StoneColor.R * stone);
+                            byte r = (byte)(
+                                baseR * (1 - grass) +
+                                gradientConfig.DirtColor.R * grass * (1 - dirt) +
+                                gradientConfig.StoneColor.R * dirt * (1 - stone) +
+                                gradientConfig.StoneColor.R * stone);
 
-                        byte g = (byte)(
-                            baseG * (1 - grass) +
-                            gradientConfig.DirtColor.G * grass * (1 - dirt) +
-                            gradientConfig.StoneColor.G * dirt * (1 - stone) +
-                            gradientConfig.StoneColor.G * stone);
+                            byte g = (byte)(
+                                baseG * (1 - grass) +
+                                gradientConfig.DirtColor.G * grass * (1 - dirt) +
+                                gradientConfig.StoneColor.G * dirt * (1 - stone) +
+                                gradientConfig.StoneColor.G * stone);
 
-                        byte b = (byte)(
-                            baseB * (1 - grass) +
-                            gradientConfig.DirtColor.B * grass * (1 - dirt) +
-                            gradientConfig.StoneColor.B * dirt * (1 - stone) +
-                            gradientConfig.StoneColor.B * stone);
+                            byte b = (byte)(
+                                baseB * (1 - grass) +
+                                gradientConfig.DirtColor.B * grass * (1 - dirt) +
+                                gradientConfig.StoneColor.B * dirt * (1 - stone) +
+                                gradientConfig.StoneColor.B * stone);
 
-                        color = 0xFF000000 | ((uint)r << 16) | ((uint)g << 8) | b;
+                            color = 0xFF000000 | ((uint)r << 16) | ((uint)g << 8) | b;
+                        }
                     }
 
-                    int index = y * currentWidth + x;
-                    pixels[index] = color;
+                    //int index = y * currentWidth + x;
+                    pixels[y,x] = color;
                 }
+                // white dots at the top of the terrain
+                //pixels[(int)terrainHeight,x] = 0xFF000000 | ((uint)250 << 16) | ((uint)250 << 8) | 250;
             });
 
             terrainBitmap.WritePixels(new Int32Rect(0, 0, currentWidth, currentHeight), pixels, currentWidth * 4, 0);
@@ -420,6 +448,8 @@ namespace TerrainGen
 
         private void ComputeNoiseValues()
         {
+            double waterY = offsetY + (currentHeight - WaterLevel) * Scale;
+            waterLUT = new double[currentWidth];
             Parallel.For(0, currentWidth, x =>
             {
                 double noiseValue = 0;
@@ -434,6 +464,10 @@ namespace TerrainGen
                 noiseValue /= normalizationFactor;
                 noiseValue = Math.Pow(Math.Abs(noiseValue), 1.2) * Math.Sign(noiseValue) * WorldMulti;
                 double normalizedValue = (noiseValue + 1) * 0.5;
+
+
+                double waterNoise = noiseGenerator.Noise1D(x * 0.0005);
+                waterLUT[x] = waterY + waterNoise * 50 * Scale;
 
                 // Scale terrain height with Scale and apply vertical offset
                 columnHeights[x] = normalizedValue * currentHeight * Scale + offsetY;
