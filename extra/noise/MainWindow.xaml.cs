@@ -30,17 +30,20 @@ namespace noise
 
         public PerlinNoise(int seed)
         {
-            var p = Enumerable.Range(0, 256).ToArray();
             var random = new Random(seed);
+
+            // Initialize and shuffle the first 256 elements
+            for (int i = 0; i < 256; i++)
+                permutation[i] = i;
 
             for (int i = 255; i > 0; i--)
             {
                 int j = random.Next(i + 1);
-                (p[i], p[j]) = (p[j], p[i]);
+                (permutation[i], permutation[j]) = (permutation[j], permutation[i]);
             }
 
-            Array.Copy(p, 0, permutation, 0, 256);
-            Array.Copy(p, 0, permutation, 256, 256);
+            // Duplicate the shuffled array to the second half
+            Array.Copy(permutation, 0, permutation, 256, 256);
         }
 
         public double Noise1D(double x)
@@ -48,14 +51,18 @@ namespace noise
             int X = (int)Math.Floor(x) & 255;
             x -= Math.Floor(x);
             double u = Fade(x);
-            return Lerp(u, Grad1D(permutation[X], x), Grad1D(permutation[X + 1], x - 1));
+
+            int hash = permutation[X];
+            int hash2 = permutation[X + 1];
+
+            double a = ((hash & 1) * 2 - 1) * x;
+            double b = ((hash2 & 1) * 2 - 1) * (1 - x);
+
+            return a + u * (b - a);
         }
 
-        private static double Grad1D(int hash, double x) => (hash & 1) == 0 ? x : -x;
         private static double Fade(double t) => t * t * t * (t * (t * 6 - 15) + 10);
-        private static double Lerp(double t, double a, double b) => a + t * (b - a);
     }
-
 
     public partial class MainWindow : Window
     {
@@ -71,6 +78,15 @@ namespace noise
         public Random rnd = new Random();
         public double[,] noiseStuff;
         public bool doDebug = false;
+        private uint[] pixels;
+        public int ff;
+        private (byte r, byte g, byte b)[] skyColors;
+        private (byte r, byte g, byte b)[] groundColors;
+        private double[] octaveFrequencies;
+        private double[] octaveAmplitudes;
+        private double[] octaveOffsets;
+        private double normalizationFactor;
+        private object lockObj = new object();
 
         public double WaterLevel { get; set; } // Default water level in pixels
         public int DirtDepth { get; set; } // Dirt layer thickness
@@ -114,34 +130,6 @@ namespace noise
             Focus();
         }
 
-        public double Scale = 1.0;
-        public double scrollStep = 0.95;
-
-        private void MainWindow_MouseWheel(MouseWheelEventArgs e)
-        {
-            Point mousePos = e.GetPosition(this);
-            double oldScale = Scale;
-            Scale *= e.Delta > 0 ? scrollStep : 1 / scrollStep;
-            if (Scale >= 10)
-            {
-                Scale = oldScale;
-                return;
-            }
-            else if (Scale <= 0.1)
-            {
-                Scale = oldScale;
-                return;
-            }
-
-            double originalX = (mousePos.X / oldScale) + offsetX;
-            double originalY = (mousePos.Y / oldScale) + offsetY;
-
-            offsetX = originalX - (mousePos.X / Scale);
-            offsetY = originalY - (mousePos.Y / Scale);
-
-            RenderTerrain();
-        }
-
         public void RegenMap()
         {
             // Reset seed and position
@@ -155,6 +143,34 @@ namespace noise
             seed = Environment.TickCount;
             noiseGenerator = new PerlinNoise(seed);
             // Re-render terrain with updated parameters
+            RenderTerrain();
+        }
+
+        public double Scale = 1.0;
+        public double scrollStep = 1.1;
+
+        private void MainWindow_MouseWheel(MouseWheelEventArgs e)
+        {
+            double oldScale = Scale;
+
+            // Adjust scale factor
+            Scale *= (e.Delta > 0) ? scrollStep : 1/ scrollStep;
+            Scale = Math2.Clamp(Scale, 0.1, 10); // Prevent invalid scales
+
+            // Calculate new transform origin
+            Point mousePos = e.GetPosition(terrainImage);
+            double relativeX = mousePos.X / terrainImage.ActualWidth;
+            double relativeY = mousePos.Y / terrainImage.ActualHeight;
+
+            // Update transform
+            terrainScaleTransform.ScaleX = Scale;
+            terrainScaleTransform.ScaleY = Scale;
+
+            // Adjust translation to keep focus point under mouse
+            terrainScaleTransform.CenterX = relativeX;
+            terrainScaleTransform.CenterY = relativeY;
+
+            // Regenerate terrain with new scale
             RenderTerrain();
         }
 
@@ -237,31 +253,59 @@ namespace noise
             RenderTerrain();
         }
 
-
         private void RenderTerrain()
         {
-            int width = (int)(currentWidth * Scale);
-            int height = (int)(currentHeight * Scale);
+            // Use actual screen dimensions instead of scaled values
+            int width = (int)currentWidth;
+            int height = (int)ActualHeight;
             double waterY = ActualHeight - WaterLevel;
             int size = 100;
 
-            // Initialize bitmap
-            terrainBitmap = new WriteableBitmap(width, height, size, size, PixelFormats.Bgra32, null);
-            var pixels = new uint[width * height];
+            // Reuse or create bitmap with screen dimensions
+            if (terrainBitmap == null || terrainBitmap.PixelWidth != width || terrainBitmap.PixelHeight != height)
+            {
+                terrainBitmap = new WriteableBitmap(width, height, size, size, PixelFormats.Bgra32, null);
+                pixels = new uint[width * height];
+            }
+
+            // Precompute octave parameters if scale changed
+            if (octaveFrequencies == null || octaveFrequencies.Length != 10 || Math.Abs(octaveFrequencies[0] - 0.003 * Scale) > 1e-6)
+            {
+                ComputeOctaveParameters(Scale);
+            }
 
             // Compute noise values
             columnHeights = new double[width];
             ComputeNoiseValues(width);
 
             // Precompute gradients
-            var (skyGradients, groundGradients) = PrecomputeGradients(height);
+            PrecomputeGradientColors(height);
 
             // Render pixels
-            RenderPixels(pixels, columnHeights, width, height, waterY, skyGradients, groundGradients);
+            RenderPixels(columnHeights, width, height, waterY);
 
             // Update bitmap
             terrainBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, width * 4, 0);
             terrainImage.Source = terrainBitmap;
+        }
+
+        private void ComputeOctaveParameters(double scale)
+        {
+            octaveFrequencies = new double[10];
+            octaveAmplitudes = new double[10];
+            octaveOffsets = Enumerable.Range(0, 10).Select(o => o * 1.3).ToArray();
+            double amplitude = 1;
+            double frequency = 0.003 * (1 / scale);
+            normalizationFactor = 0.6;
+
+            for (int o = 0; o < 10; o++)
+            {
+                octaveFrequencies[o] = frequency;
+                octaveAmplitudes[o] = amplitude;
+                normalizationFactor += amplitude;
+                amplitude *= 0.5;
+                frequency *= 1.5;
+            }
         }
 
         private void ComputeNoiseValues(int width)
@@ -269,25 +313,19 @@ namespace noise
             Parallel.For(0, width, x =>
             {
                 double noiseValue = 0;
-                double amplitude = 1;
-                double frequency = 0.003;
-                double normalizationFactor = 0.6;
+                double worldX = x + (offsetX + width) * Scale;
 
                 for (int o = 0; o < 10; o++)
                 {
-                    double sampleX = ((x + offsetX) * frequency) + (o * 1.3);
-                    double octaveNoise = noiseGenerator.Noise1D(sampleX);
-                    noiseValue += octaveNoise * amplitude;
-                    normalizationFactor += amplitude;
-                    amplitude *= 0.5;
-                    frequency *= 1.5;
+                    double sampleX = worldX * octaveFrequencies[o] + octaveOffsets[o];
+                    noiseValue += noiseGenerator.Noise1D(sampleX) * octaveAmplitudes[o];
                 }
 
                 noiseValue /= normalizationFactor;
                 noiseValue = Math.Pow(Math.Abs(noiseValue), 1.2) * Math.Sign(noiseValue) * WorldMulti;
                 double normalizedValue = (noiseValue + 1) * 0.5;
-                
-                columnHeights[x] = normalizedValue * currentHeight + offsetY;
+
+                columnHeights[x] = normalizedValue * currentHeight * Scale + offsetY;
 
                 if (doDebug)
                 {
@@ -295,81 +333,80 @@ namespace noise
                     noiseStuff[x, 1] = normalizedValue;
                 }
             });
-
         }
 
-        private (byte[] sky, byte[] ground) PrecomputeGradients(int height)
+
+        private (byte, byte, byte) MultiplyColor(Color color, byte gradient)
         {
-            byte[] skyGradients = new byte[height];
-            byte[] groundGradients = new byte[height];
+            float factor = gradient / 255f;
+            return ((byte)(color.R * factor), (byte)(color.G * factor), (byte)(color.B * factor));
+        }
+        // Add a new field to store gradient factors instead of precomputed colors
+        private byte[] groundGradients;
+
+        private void PrecomputeGradientColors(int height)
+        {
+            skyColors = new (byte, byte, byte)[height];
+            groundGradients = new byte[height]; // Store gradient factors instead of colors
 
             for (int y = 0; y < height; y++)
             {
-                skyGradients[y] = (byte)(Math.Max(y / (double)height, 0.5) * 255);
+                // Sky gradient remains unchanged
+                byte skyGradient = (byte)(Math.Max(y / (double)height, 0.5) * 255);
+                skyColors[y] = MultiplyColor(SkyColor, skyGradient);
+
+                // Compute and store ground gradient factor
                 groundGradients[y] = (byte)((1 - (y / (double)height) * 0.7) * 255);
             }
-
-            return (skyGradients, groundGradients);
         }
 
-        private void RenderPixels(uint[] pixels, double[] columnHeights,
-            int width, int height, double waterY,
-            byte[] skyGradients, byte[] groundGradients)
+        private void RenderPixels(double[] columnHeights, int width, int height, double waterY)
         {
-            Parallel.For(0, height, y =>
+            Parallel.For(0, width, x =>
             {
-                for (int x = 0; x < width; x++)
-                {
-                    double baseHeight = columnHeights[x];
-                    (byte r, byte g, byte b) = GetColorForPixel(x, y, baseHeight, waterY);
+                double baseHeight = columnHeights[x];
+                int startY = Math.Max(0, (int)(baseHeight - GrassDepth));
+                int endY = Math.Min(height, (int)(baseHeight + DirtDepth) + 1);
 
-                    // Apply gradients
+                for (int y = 0; y < height; y++)
+                {
                     if (y < baseHeight)
                     {
-                        r = (byte)(r * skyGradients[y] / 255);
-                        g = (byte)(g * skyGradients[y] / 255);
-                        b = (byte)(b * skyGradients[y] / 255);
+                        // Sky/water rendering remains unchanged
+                        if (y > waterY && baseHeight > waterY)
+                        {
+                            pixels[y * width + x] = 0xFF000000 | (uint)(WaterColor.R << 16 | WaterColor.G << 8 | WaterColor.B);
+                        }
+                        else
+                        {
+                            var color = skyColors[y];
+                            pixels[y * width + x] = 0xFF000000 | (uint)(color.r << 16 | color.g << 8 | color.b);
+                        }
                     }
                     else
                     {
-                        r = (byte)(r * groundGradients[y] / 255);
-                        g = (byte)(g * groundGradients[y] / 255);
-                        b = (byte)(b * groundGradients[y] / 255);
+                        // Apply gradient to correct terrain type
+                        if (y < baseHeight + GrassDepth && y > baseHeight - GrassDepth)
+                        {
+                            var color = y < waterY ? GrassColor : SandColor;
+                            var groundColor = MultiplyColor(color, groundGradients[y]);
+                            pixels[y * width + x] = 0xFF000000 | (uint)(groundColor.Item1 << 16 | groundColor.Item2 << 8 | groundColor.Item3);
+                        }
+                        else if (y < baseHeight + DirtDepth)
+                        {
+                            var groundColor = MultiplyColor(DirtColor, groundGradients[y]);
+                            pixels[y * width + x] = 0xFF000000 | (uint)(groundColor.Item1 << 16 | groundColor.Item2 << 8 | groundColor.Item3);
+                        }
+                        else
+                        {
+                            var groundColor = MultiplyColor(StoneColor, groundGradients[y]);
+                            pixels[y * width + x] = 0xFF000000 | (uint)(groundColor.Item1 << 16 | groundColor.Item2 << 8 | groundColor.Item3);
+                        }
                     }
-
-                    pixels[y * width + x] = (uint)((255 << 24) | (r << 16) | (g << 8) | b);
                 }
             });
         }
 
-        private (byte r, byte g, byte b) GetColorForPixel(int x, int y, double baseHeight, double waterY)
-        {
-            if (y < baseHeight)
-            {
-                if (y > waterY && baseHeight > waterY)
-                    return GetByteFromColor(WaterColor);
-
-                return GetByteFromColor(SkyColor);
-            }
-
-            if (y < baseHeight + GrassDepth && y > baseHeight - GrassDepth)
-            {
-                if (y < waterY)
-                    return GetByteFromColor(GrassColor);
-                else
-                    return GetByteFromColor(SandColor);
-            }
-
-            if (y < baseHeight + DirtDepth)
-                return GetByteFromColor(DirtColor);
-
-            return GetByteFromColor(StoneColor);
-        }
-
-        private (byte r, byte g, byte b) GetByteFromColor(Color color)
-        {
-            return (color.R, color.G, color.B);
-        }
 
     }
 }
