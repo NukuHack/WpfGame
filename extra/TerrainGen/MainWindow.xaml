@@ -14,7 +14,7 @@
     <Grid>
 
         <Canvas x:Name="TerrainCanvas" Background="LightBlue">
-            <Image x:Name="terrainImage" Stretch="Fill">
+            <Image x:Name="terrainImage" Stretch="None">
                 <Image.RenderTransform>
                     <ScaleTransform x:Name="terrainScaleTransform" 
                        ScaleX="1" 
@@ -22,8 +22,14 @@
                 </Image.RenderTransform>
             </Image>
 
-            <Label x:Name="infoText" Content="" Visibility="Collapsed" Canvas.Left="500" Canvas.Top="222" Height="57" Width="59" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#CC4A4A4A" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveCaptionTextBrushKey}}" Foreground="#FFDDDDDD"/>
-            <StackPanel x:Name="debugPanel" Height="227" Canvas.Left="976" Visibility="Collapsed" Canvas.Top="230" Width="214" HorizontalAlignment="Center" VerticalAlignment="Top">
+            <Label x:Name="infoText" Content="" Visibility="Collapsed"
+                   Height="60" Width="60" FontSize="14" Background="#CC4A4A4A"
+                   BorderBrush="{DynamicResource {x:Static SystemColors.ActiveCaptionTextBrushKey}}"
+                   Foreground="#FFDDDDDD"/>
+            
+            <StackPanel x:Name="debugPanel" Height="227" Canvas.Left="976"
+                        Visibility="Collapsed" Canvas.Top="230" Width="214"
+                        HorizontalAlignment="Center" VerticalAlignment="Top">
                 <Label x:Name="label1" Content="Click to update"/>
                 <Label x:Name="label2" Content=""/>
                 <Label x:Name="label3" Content=""/>
