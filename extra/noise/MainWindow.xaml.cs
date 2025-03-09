@@ -59,19 +59,20 @@ namespace noise
 
     public partial class MainWindow : Window
     {
-        public double Scale = 80.0;
         public double MoveStep = 100.0; // Movement speed per key press
         public PerlinNoise noiseGenerator;
         public WriteableBitmap terrainBitmap;
-        public Image terrainImage = new Image();
         public int currentWidth, currentHeight;
-        public double offset; // Horizontal offset for terrain panning
+        public double[] columnHeights;
+        public double offsetX; // Horizontal offset for terrain panning
+        public double offsetY; // Vertical offset for terrain panning
         public int seed;
         public double WorldMulti;
         public Random rnd = new Random();
         public double[,] noiseStuff;
+        public bool doDebug = false;
 
-        public int WaterLevel { get; set; } // Default water level in pixels
+        public double WaterLevel { get; set; } // Default water level in pixels
         public int DirtDepth { get; set; } // Dirt layer thickness
         public int GrassDepth { get; set; }  // Grass layer thickness
         public Color WaterColor { get; set; } = Colors.Blue;
@@ -84,11 +85,17 @@ namespace noise
         public MainWindow()
         {
             InitializeComponent();
-            TerrainCanvas.Children.Add(terrainImage);
             this.Loaded += (_, __) => Initialize();
         }
         private void Initialize()
         {
+            
+            this.terrainImage.MouseLeftButtonDown += terrainImage_MouseLeftButtonDown;
+            this.terrainImage.MouseLeftButtonUp += terrainImage_MouseLeftButtonUp;
+            this.terrainImage.MouseMove += terrainImage_MouseMove;
+            
+            this.MouseWheel += (s,e) => { MainWindow_MouseWheel(e); };
+
             currentWidth = (int)ActualWidth;
             currentHeight = (int)ActualHeight;
             noiseStuff = new double[currentWidth, 2];
@@ -106,6 +113,35 @@ namespace noise
             this.Focusable = true;
             Focus();
         }
+
+        public double Scale = 1.0;
+        public double scrollStep = 0.95;
+
+        private void MainWindow_MouseWheel(MouseWheelEventArgs e)
+        {
+            Point mousePos = e.GetPosition(this);
+            double oldScale = Scale;
+            Scale *= e.Delta > 0 ? scrollStep : 1 / scrollStep;
+            if (Scale >= 10)
+            {
+                Scale = oldScale;
+                return;
+            }
+            else if (Scale <= 0.1)
+            {
+                Scale = oldScale;
+                return;
+            }
+
+            double originalX = (mousePos.X / oldScale) + offsetX;
+            double originalY = (mousePos.Y / oldScale) + offsetY;
+
+            offsetX = originalX - (mousePos.X / Scale);
+            offsetY = originalY - (mousePos.Y / Scale);
+
+            RenderTerrain();
+        }
+
         public void RegenMap()
         {
             // Reset seed and position
@@ -114,54 +150,108 @@ namespace noise
             GrassDepth = rnd.Next(5, 20);
             DirtDepth = rnd.Next(5, 100) + GrassDepth;
 
-            offset = 0.0;
+            offsetX = 0.0;
+            offsetY = 0.0;
             seed = Environment.TickCount;
             noiseGenerator = new PerlinNoise(seed);
             // Re-render terrain with updated parameters
             RenderTerrain();
         }
 
+        private Point? _moveStartPoint;
+        private void terrainImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _moveStartPoint = e.GetPosition(terrainImage);
+            terrainImage.CaptureMouse();
+        }
+
+        private void terrainImage_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_moveStartPoint.HasValue)
+            {
+                var delta = _moveStartPoint.Value - e.GetPosition(terrainImage);
+                offsetX += delta.X;
+                offsetY -= delta.Y*0.7;
+                WaterLevel += delta.Y * 0.7;
+                //y value only if scrolled in
+                _moveStartPoint = e.GetPosition(terrainImage);
+                RenderTerrain();
+            }
+        }
+
+        private void terrainImage_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            _moveStartPoint = null;
+            terrainImage.ReleaseMouseCapture();
+        }
+
+        
+
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.A) Move(-MoveStep);
-            else if (e.Key == Key.D) Move(MoveStep);
+            if (e.Key == Key.A) MoveX(-MoveStep);
+            else if (e.Key == Key.D) MoveX(MoveStep);
+            else if (e.Key == Key.W) MoveY(MoveStep);
+            else if (e.Key == Key.S) MoveY(-MoveStep);
             else if (e.Key == Key.R) RegenMap();
             else if (e.Key == Key.T) ShowDebugInfo();
+            else if (e.Key == Key.F) DoDebug();
+        }
+        private void DoDebug()
+        {
+            doDebug = !doDebug;
+            MessageBox.Show($"Now the debug changed to :{doDebug}");
         }
         private void ShowDebugInfo()
         {
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine($"Seed: {seed}");
-            sb.AppendLine($"Offset: {offset:F2}");
-            sb.AppendLine($"WorldMulti: {WorldMulti}");
-            sb.AppendLine("X | Noise | Height");
+            if (doDebug)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine($"Seed: {seed}");
+                sb.AppendLine($"Offset: {offsetX:F2}_X {offsetY:F2}_Y");
+                sb.AppendLine($"WorldMulti: {WorldMulti}");
+                sb.AppendLine("X | Noise | Height");
 
-            for (int x = 0; x < Math.Min(currentWidth, 8000); x += 40)
-                sb.AppendLine($"{x,3} | {noiseStuff[x, 0],5:F1} | {noiseStuff[x, 1],5:F1}");
+                for (int x = 0; x < Math.Min(currentWidth, 8000); x += 40)
+                    sb.AppendLine($"{x,3} | {noiseStuff[x, 0],5:F1} | {noiseStuff[x, 1],5:F1}");
 
-            MessageBox.Show(sb.ToString(), "Terrain Debug Info");
+                MessageBox.Show(sb.ToString(), "Terrain Debug Info");
+            }
+            else
+            {
+                MessageBox.Show("First you have to enable debug mode for that (F)");
+            }
+
         }
 
-        private void Move(double move)
+        private void MoveX(double move)
         {
-            offset += move;
+            offsetX += move;
+            RenderTerrain();
+        }
+        private void MoveY(double move)
+        {
+            offsetY += move;
+            WaterLevel -= move;
             RenderTerrain();
         }
 
 
         private void RenderTerrain()
         {
-            int width = currentWidth;
-            int height = currentHeight;
+            int width = (int)(currentWidth * Scale);
+            int height = (int)(currentHeight * Scale);
             double waterY = ActualHeight - WaterLevel;
+            int size = 100;
 
             // Initialize bitmap
-            terrainBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+            terrainBitmap = new WriteableBitmap(width, height, size, size, PixelFormats.Bgra32, null);
             var pixels = new uint[width * height];
 
             // Compute noise values
-            double[] columnHeights = ComputeNoiseValues(width);
+            columnHeights = new double[width];
+            ComputeNoiseValues(width);
 
             // Precompute gradients
             var (skyGradients, groundGradients) = PrecomputeGradients(height);
@@ -174,20 +264,18 @@ namespace noise
             terrainImage.Source = terrainBitmap;
         }
 
-        private double[] ComputeNoiseValues(int width)
+        private void ComputeNoiseValues(int width)
         {
-            double[] columnHeights = new double[width];
-
             Parallel.For(0, width, x =>
             {
                 double noiseValue = 0;
                 double amplitude = 1;
-                double frequency = 0.5 / Scale;
+                double frequency = 0.003;
                 double normalizationFactor = 0.6;
 
                 for (int o = 0; o < 10; o++)
                 {
-                    double sampleX = ((x + offset) * frequency) + (o * 1.3);
+                    double sampleX = ((x + offsetX) * frequency) + (o * 1.3);
                     double octaveNoise = noiseGenerator.Noise1D(sampleX);
                     noiseValue += octaveNoise * amplitude;
                     normalizationFactor += amplitude;
@@ -198,13 +286,16 @@ namespace noise
                 noiseValue /= normalizationFactor;
                 noiseValue = Math.Pow(Math.Abs(noiseValue), 1.2) * Math.Sign(noiseValue) * WorldMulti;
                 double normalizedValue = (noiseValue + 1) * 0.5;
+                
+                columnHeights[x] = normalizedValue * currentHeight + offsetY;
 
-                columnHeights[x] = normalizedValue * currentHeight;
-                noiseStuff[x, 0] = noiseValue;
-                noiseStuff[x, 1] = normalizedValue;
+                if (doDebug)
+                {
+                    noiseStuff[x, 0] = noiseValue;
+                    noiseStuff[x, 1] = normalizedValue;
+                }
             });
 
-            return columnHeights;
         }
 
         private (byte[] sky, byte[] ground) PrecomputeGradients(int height)
@@ -256,23 +347,28 @@ namespace noise
             if (y < baseHeight)
             {
                 if (y > waterY && baseHeight > waterY)
-                    return (WaterColor.R, WaterColor.G, WaterColor.B);
+                    return GetByteFromColor(WaterColor);
 
-                return (SkyColor.R, SkyColor.G, SkyColor.B);
+                return GetByteFromColor(SkyColor);
             }
 
             if (y < baseHeight + GrassDepth && y > baseHeight - GrassDepth)
             {
                 if (y < waterY)
-                    return (GrassColor.R, GrassColor.G, GrassColor.B);
+                    return GetByteFromColor(GrassColor);
                 else
-                    return (SandColor.R, SandColor.G, SandColor.B);
+                    return GetByteFromColor(SandColor);
             }
 
             if (y < baseHeight + DirtDepth)
-                return (DirtColor.R, DirtColor.G, DirtColor.B);
+                return GetByteFromColor(DirtColor);
 
-            return (StoneColor.R, StoneColor.G, StoneColor.B);
+            return GetByteFromColor(StoneColor);
+        }
+
+        private (byte r, byte g, byte b) GetByteFromColor(Color color)
+        {
+            return (color.R, color.G, color.B);
         }
 
     }
