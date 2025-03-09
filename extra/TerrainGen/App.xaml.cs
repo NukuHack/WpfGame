@@ -1,4 +1,4 @@
-﻿
+
 using System;
 
 using System.IO;
@@ -26,6 +26,58 @@ namespace TerrainGen
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
+    public partial class App : Application
+    {
+        /*
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            base.OnStartup(e);
+            var mainWindow = new MainWindow(DateTime.Now.Millisecond);
+            mainWindow.Show();
+        }
+        */
+    }
+
+
+    public class PerlinNoise
+    {
+        private readonly int[] permutation = new int[512];
+
+        public PerlinNoise(int seed)
+        {
+            var random = new Random(seed);
+
+            // Initialize and shuffle the first 256 elements
+            for (int i = 0; i < 256; i++)
+                permutation[i] = i;
+
+            for (int i = 255; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                (permutation[i], permutation[j]) = (permutation[j], permutation[i]);
+            }
+
+            // Duplicate the shuffled array to the second half
+            Array.Copy(permutation, 0, permutation, 256, 256);
+        }
+
+        public double Noise1D(double x)
+        {
+            int X = (int)Math.Floor(x) & 255;
+            x -= Math.Floor(x);
+            double u = Fade(x);
+
+            int hash = permutation[X];
+            int hash2 = permutation[X + 1];
+
+            double a = ((hash & 1) * 2 - 1) * x;
+            double b = ((hash2 & 1) * 2 - 1) * (1 - x);
+
+            return a + u * (b - a);
+        }
+
+        private static double Fade(double t) => t * t * t * (t * (t * 6 - 15) + 10);
+    }
 
     public static class Color2
     {
@@ -66,18 +118,5 @@ namespace TerrainGen
         {
             return (uint)((color.A << 24) | (color.R << 16) | (color.G << 8) | color.B);
         }
-    }
-
-
-    public partial class App : Application
-    {
-        /*
-        protected override void OnStartup(StartupEventArgs e)
-        {
-            base.OnStartup(e);
-            var mainWindow = new MainWindow(DateTime.Now.Millisecond);
-            mainWindow.Show();
-        }
-        */
     }
 }
