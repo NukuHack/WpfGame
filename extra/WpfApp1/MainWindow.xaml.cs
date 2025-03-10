@@ -1,4 +1,4 @@
-﻿
+
 using System;
 
 using System.IO;
@@ -140,10 +140,10 @@ namespace WpfApp1
             else
             {
                 double delta = y - terrainHeight;
-                if (delta <= GrassDepth)
+                if (delta <= GrassDepth*(Scale*0.8))
                     // Check if near water edge (replicate "sunk" condition)
                     material = (y > waterLevel - 5) ? "Sand" : "Grass";
-                else if (delta <= DirtDepth)
+                else if (delta <= DirtDepth * (Scale * 0.8))
                     material = "Dirt";
                 else
                     material = "Stone";
@@ -393,9 +393,9 @@ namespace WpfApp1
             }
 
             // Precompute inverse depths for terrain blending
-            double invGrass = 1.0 / GrassDepth;
-            double invDirt = 1.0 / (DirtDepth - GrassDepth);
-            double invStone = 1.0 / (currentWidth - DirtDepth);
+            double invGrass = 1.0 / GrassDepth * (1/Scale);
+            double invDirt = 1.0 / (DirtDepth - GrassDepth) * (1 / Scale);
+            double invStone = 1.0 / (currentWidth - DirtDepth) * (1 / Scale);
 
             // Render terrain in parallel
             Parallel.For(0, currentWidth, x =>
