@@ -190,7 +190,19 @@ namespace WpfApp1
             GrassDepth = rnd.Next(5, 20);
             DirtDepth = rnd.Next(5, 100) + GrassDepth;
 
-            offsetX = 0.0;
+            var colors = TerrainColorGenerator.GenerateColors(7);
+            WaterColor = colors[0];
+            WaterDeepColor = colors[1];
+            GrassColor = colors[2];
+            SandColor = colors[3];
+            DirtColor = colors[4];
+            SkyColor = colors[5];
+            StoneColor = colors[6];
+
+
+
+
+        offsetX = 0.0;
             offsetY = 0.0;
             seed = Environment.TickCount;
             noiseGenerator = new PerlinNoise(seed);
