@@ -22,6 +22,8 @@ using Microsoft.Win32.SafeHandles;
 using System.Windows.Interop;
 using System.Reflection;
 using System.Reflection.Emit;
+using Microsoft.Win32;
+using System.Windows.Threading;
 
 namespace WpfApp1
 {
@@ -42,6 +44,7 @@ namespace WpfApp1
         public double WorldMulti = 3.5; // wanted it to be random between 1 and 5 but decided to use a constant :/
         public double[,] noiseDebug;
         public bool doDebug = false;
+        public DispatcherTimer timer;
         private uint[,] pixels;
         private double[] waterLUT;
         private Point? _moveStartPoint;
@@ -63,6 +66,8 @@ namespace WpfApp1
         public Color SkyColor = Colors.LightBlue;
         public Color StoneColor = Colors.DarkGray;
 
+        public Player player;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -70,7 +75,42 @@ namespace WpfApp1
         }
 
 
-        private void Initialize()
+        private void ReLoadImage()
+        {
+            var openFileDialog = new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*" };
+            if (openFileDialog.ShowDialog() == true)
+            {
+                BitmapImage bitmapImage = new BitmapImage(new Uri(openFileDialog.FileName));
+                player = new Player(bitmapImage, currentWidth / 2, currentHeight / 2, 5, this); // Starting position (100,100), speed 5
+                playerImage.Source = player.Image;
+
+                timer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS
+                };
+                timer.Tick += Timer_Tick;
+                timer.Start();
+            }
+        }
+
+        public void Player_RePos()
+        {
+            if (player != null)
+            {
+                player.X = player.TargetX = TerrainCanvas.ActualWidth / 2; // Reset target position
+                player.Y = player.TargetY = TerrainCanvas.ActualHeight / 2;
+                player.UpdatePosition();
+            }
+        }
+
+        public void Timer_Tick(object sender, EventArgs e)
+        {
+            player.UpdatePosition(); // Update player's position smoothly
+            player.ApplyGravity(0);
+        }
+
+
+    private void Initialize()
         {
 
             this.terrainImage.MouseRightButtonDown += terrainImage_MouseRightButtonDown;
@@ -264,25 +304,51 @@ namespace WpfApp1
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.A) MoveX(-100);
-            else if (e.Key == Key.D) MoveX(100);
-            else if (e.Key == Key.W) MoveY(100);
-            else if (e.Key == Key.S) MoveY(-100);
+            if (e.Key == Key.A) MoveTerrain(-100);
+            else if (e.Key == Key.D) MoveTerrain(100);
+            else if (e.Key == Key.W) MoveTerrain(100,true);
+            else if (e.Key == Key.S) MoveTerrain(-100,true);
             else if (e.Key == Key.R) RegenMap();
             else if (e.Key == Key.T) ShowDebugInfo();
+            else if (e.Key == Key.P) ReLoadImage();
             else if (e.Key == Key.F) DoDebug();
         }
 
 
-        private void MoveX(double move)
+        private void MoveTerrain(double move,bool onY = false)
         {
-            offsetX += move;
-            RenderTerrain();
-        }
-        private void MoveY(double move)
-        {
-            offsetY += move;
-            RenderTerrain();
+            if (Keyboard.IsKeyDown(Key.LeftCtrl))
+            {
+                if (onY)
+                {
+                    offsetY += move;
+                    RenderTerrain();
+                }
+                else
+                {
+                    offsetX += move;
+                    RenderTerrain();
+                }
+            }
+            else
+            { 
+                Direction direction = new Direction();
+                if (onY)
+                {
+                    if(move > 0)
+                        direction = Direction.Up;
+                    else
+                        direction = Direction.Down;
+                }
+                else
+                {
+                    if (move > 0)
+                        direction = Direction.Right;
+                    else
+                        direction = Direction.Left;
+                }
+                player.SetTargetPosition(direction);
+            }
         }
         private void DoDebug()
         {
