@@ -25,14 +25,6 @@ using System.Windows.Media.Media3D;
 
 namespace VoidVenture
 {
-    public static class MathUtils
-    {
-        // Clamp function for integers and doubles
-        public static int Clamp(int value, int min, int max) => Math.Max(min, Math.Min(value, max));
-        public static double Clamp(double value, double min, double max) => Math.Max(min, Math.Min(value, max));
-    }
-
-
     public class Player
     {
         public double X { get; set; } // Current position
@@ -66,8 +58,8 @@ namespace VoidVenture
                 case Direction.Right: nextTargetX += Speed; break;
             }
 
-            nextTargetX = MathUtils.Clamp(nextTargetX, 0, canvasWidth - Width);
-            nextTargetY = MathUtils.Clamp(nextTargetY, 0, canvasHeight - Height);
+            nextTargetX = Math2.Clamp(nextTargetX, 0, canvasWidth - Width);
+            nextTargetY = Math2.Clamp(nextTargetY, 0, canvasHeight - Height);
 
             Rect newPlayerBounds = new Rect(nextTargetX, nextTargetY, Width, Height);
 
