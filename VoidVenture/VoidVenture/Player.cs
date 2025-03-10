@@ -5,8 +5,11 @@ using System.Text;
 using System.Linq;
 using System.Drawing;
 using System.Xml.Linq;
+using System.Reflection;
 using System.Diagnostics;
+using System.Reflection.Emit;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -22,6 +25,9 @@ using System.Windows.Navigation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 
+using Microsoft.Win32.SafeHandles;
+using Microsoft.Win32;
+
 
 namespace VoidVenture
 {
@@ -36,13 +42,42 @@ namespace VoidVenture
         public int Height { get; set; }
         public double Rotation { get; set; } = 0; // New property for rotation
 
-        public Player(double x, double y, double speed, int width, int height)
+
+        // Image and collision properties
+        public BitmapSource Image { get; }
+        public MainWindow window { get; }
+        public WriteableBitmap WriteableBitmap { get; }
+        public List<Point> OctagonPoints { get; private set; }
+        public (int Y, int MinX, int MaxX) TopEdge { get; private set; }
+        public (int Y, int MinX, int MaxX) BottomEdge { get; private set; }
+        public (int X, int MinY, int MaxY) LeftEdge { get; private set; }
+        public (int X, int MinY, int MaxY) RightEdge { get; private set; }
+
+        public Player(MainWindow window, BitmapImage image, double x, double y, double speed, int width, int height)
         {
             X = TargetX = x;
             Y = TargetY = y;
             Speed = speed;
             Width = width;
             Height = height;
+            this.window = window;
+
+            Image = image;
+
+            WriteableBitmap = new WriteableBitmap(
+                image.PixelWidth,
+                image.PixelHeight,
+                image.DpiX,
+                image.DpiY,
+                PixelFormats.Pbgra32,
+                null);
+
+            int stride = Image.PixelWidth * 4;
+            byte[] pixels = new byte[Image.PixelHeight * stride];
+            image.CopyPixels(pixels, stride, 0);
+            WriteableBitmap.WritePixels(new Int32Rect(0, 0, Image.PixelWidth, Image.PixelHeight), pixels, stride, 0);
+
+            //CalculateCollisionGeometry();
         }
 
         public void SetTargetPosition(Direction direction, double canvasWidth, double canvasHeight, List<Rect> collidableTiles)
@@ -71,6 +106,29 @@ namespace VoidVenture
             }
         }
 
+
+        public void CalculateCollisionGeometry()
+        {
+            int stride = WriteableBitmap.BackBufferStride;
+            byte[] pixels = new byte[Image.PixelHeight * stride];
+            WriteableBitmap.CopyPixels(pixels, stride, 0);
+
+            TopEdge = FindTopEdge(pixels, Image.PixelWidth, Image.PixelHeight, stride);
+            BottomEdge = FindBottomEdge(pixels, Image.PixelWidth, Image.PixelHeight, stride);
+            LeftEdge = FindLeftEdge(pixels, Image.PixelWidth, Image.PixelHeight, stride);
+            RightEdge = FindRightEdge(pixels, Image.PixelWidth, Image.PixelHeight, stride);
+            OctagonPoints = new List<Point>
+{
+    new Point(TopEdge.MinX, TopEdge.Y),
+    new Point(TopEdge.MaxX, TopEdge.Y),
+    new Point(RightEdge.X, RightEdge.MinY),
+    new Point(RightEdge.X, RightEdge.MaxY),
+    new Point(BottomEdge.MaxX, BottomEdge.Y),
+    new Point(BottomEdge.MinX, BottomEdge.Y),
+    new Point(LeftEdge.X, LeftEdge.MaxY),
+    new Point(LeftEdge.X, LeftEdge.MinY)
+};
+        }
 
 
         public void ApplyGravity(double gravity)
@@ -113,6 +171,97 @@ namespace VoidVenture
             return false;
         }
 
+        /*
+        public bool CheckCollision(double posX, double posY)
+        {
+            if (window.columnHeights == null || window.columnHeights.Length == 0)
+                return false;
+
+            foreach (var point in OctagonPoints)
+            {
+                double worldX = posX + point.X;
+                double worldY = posY + point.Y;
+                int x = (int)worldX; // Convert to integer column index
+
+                // Check if out of terrain bounds
+                if (x < 0 || x >= window.columnHeights.Length)
+                    return true;
+
+                // Collision occurs if the player's Y is below the terrain's height at this X
+                if (worldY > window.columnHeights[x])
+                    return true;
+            }
+            return false;
+        }
+        */
+
+        public (int y, int minX, int maxX) FindTopEdge(byte[] pixels, int width, int height, int stride)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                (int minX, int maxX) = GetRowMinMax(pixels, width, stride, y);
+                if (minX != -1) return (y, minX, maxX);
+            }
+            return (-1, -1, -1);
+        }
+
+        public (int y, int minX, int maxX) FindBottomEdge(byte[] pixels, int width, int height, int stride)
+        {
+            for (int y = height - 1; y >= 0; y--)
+            {
+                (int minX, int maxX) = GetRowMinMax(pixels, width, stride, y);
+                if (minX != -1) return (y, minX, maxX);
+            }
+            return (-1, -1, -1);
+        }
+
+        public (int x, int minY, int maxY) FindLeftEdge(byte[] pixels, int width, int height, int stride)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                (int minY, int maxY) = GetColumnMinMax(pixels, height, stride, x);
+                if (minY != -1) return (x, minY, maxY);
+            }
+            return (-1, -1, -1);
+        }
+
+        public (int x, int minY, int maxY) FindRightEdge(byte[] pixels, int width, int height, int stride)
+        {
+            for (int x = width - 1; x >= 0; x--)
+            {
+                (int minY, int maxY) = GetColumnMinMax(pixels, height, stride, x);
+                if (minY != -1) return (x, minY, maxY);
+            }
+            return (-1, -1, -1);
+        }
+
+        public (int minX, int maxX) GetRowMinMax(byte[] pixels, int width, int stride, int y)
+        {
+            int minX = -1, maxX = -1;
+            for (int x = 0; x < width; x++)
+            {
+                if (pixels[y * stride + x * 4 + 3] > 0)
+                {
+                    if (minX == -1 || x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                }
+            }
+            return (minX, maxX);
+        }
+
+        public (int minY, int maxY) GetColumnMinMax(byte[] pixels, int height, int stride, int x)
+        {
+            int minY = -1, maxY = -1;
+            for (int y = 0; y < height; y++)
+            {
+                if (pixels[y * stride + x * 4 + 3] > 0)
+                {
+                    if (minY == -1 || y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+            return (minY, maxY);
+        }
 
 
 
@@ -154,7 +303,7 @@ namespace VoidVenture
     {
         public Player player;
         public MatrixTransform playerTransform; // Use MatrixTransform instead of TransformGroup
-        public Image playerImage;
+        public System.Windows.Controls.Image playerImage;
 
         public readonly double _gravity = 5;
         public double gravity = 5;
@@ -226,43 +375,99 @@ namespace VoidVenture
 
             try
             {
-
-                // Create the player object
-                player = new Player(GameCanvas.ActualWidth / 2, GameCanvas.ActualHeight * 0.2, 20, 46, 84);
-
-                if (!DORecolorPlayer)
+                if (DOSelectrPlayerManually)
                 {
-                    // Load the player image
-                    BitmapImage playerImageSource = new BitmapImage();
-                    playerImageSource.BeginInit();
-                    playerImageSource.UriSource = new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute);
-                    playerImageSource.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
-                    playerImageSource.EndInit();
 
-                    // Create the player image element
-                    playerImage = new Image
+                    var openFileDialog = new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*" };
+                    if (openFileDialog.ShowDialog() == true)
                     {
-                        Source = playerImageSource,
-                        Width = player.Width,
-                        Height = player.Height,
-                        RenderTransformOrigin = new Point(0, 0) // Set origin for rotation
-                    };
+                        BitmapImage bitmapImage = new BitmapImage(new Uri(openFileDialog.FileName));
+                        //public Player(MainWindow window, BitmapImage image, double x, double y, double speed, int width, int height)
+                        player = new Player(this, bitmapImage, GameCanvas.ActualWidth * 0.5, GameCanvas.ActualHeight * 0.2, 20, 46, 84);
+                        //playerImage.Source = player.Image;
+                    }
+                    else
+                    {
+                        BitmapImage bitmapImage = new BitmapImage(new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute));
+                        player = new Player(this, bitmapImage, GameCanvas.ActualWidth * 0.5, GameCanvas.ActualHeight * 0.2, 20, 46, 84);
+                        //playerImage.Source = player.Image;
+                    }
+
+                    if (!DORecolorPlayer)
+                    {
+                        // Load the player image
+                        BitmapImage playerImageSource = new BitmapImage();
+                        playerImageSource.BeginInit();
+                        playerImageSource.UriSource = new Uri(openFileDialog.FileName);
+                        playerImageSource.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
+                        playerImageSource.EndInit();
+
+                        // Create the player image element
+                        playerImage = new System.Windows.Controls.Image
+                        {
+                            Source = playerImageSource,
+                            Width = player.Width,
+                            Height = player.Height,
+                            RenderTransformOrigin = new Point(0, 0) // Set origin for rotation
+                        };
+                    }
+                    else
+                    {
+                        // Create the recolored image
+                        var playerRecolored = RecolorImage(openFileDialog.FileName);
+
+                        // Create the player image element
+                        playerImage = new System.Windows.Controls.Image
+                        {
+                            Source = playerRecolored,
+                            Width = player.Width,
+                            Height = player.Height,
+                            RenderTransformOrigin = new Point(0, 0), // Set origin for rotation
+                        };
+
+                    }
                 }
                 else
                 {
-                    // Create the recolored image
-                    var playerRecolored = RecolorImage(PlayerImagePath);
+                    BitmapImage bitmapImage = new BitmapImage(new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute));
+                    player = new Player(this, bitmapImage, GameCanvas.ActualWidth* 0.5, GameCanvas.ActualHeight * 0.2, 20, 46, 84);
+                    //playerImage.Source = player.Image;
 
-                    // Create the player image element
-                    playerImage = new Image
+                    if (!DORecolorPlayer)
                     {
-                        Source = playerRecolored,
-                        Width = player.Width,
-                        Height = player.Height,
-                        RenderTransformOrigin = new Point(0, 0), // Set origin for rotation
-                    };
+                        // Load the player image
+                        BitmapImage playerImageSource = new BitmapImage();
+                        playerImageSource.BeginInit();
+                        playerImageSource.UriSource = new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute);
+                        playerImageSource.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
+                        playerImageSource.EndInit();
 
+                        // Create the player image element
+                        playerImage = new System.Windows.Controls.Image
+                        {
+                            Source = playerImageSource,
+                            Width = player.Width,
+                            Height = player.Height,
+                            RenderTransformOrigin = new Point(0, 0) // Set origin for rotation
+                        };
+                    }
+                    else
+                    {
+                        // Create the recolored image
+                        var playerRecolored = RecolorImage(PlayerImagePath);
+
+                        // Create the player image element
+                        playerImage = new System.Windows.Controls.Image
+                        {
+                            Source = playerRecolored,
+                            Width = player.Width,
+                            Height = player.Height,
+                            RenderTransformOrigin = new Point(0, 0), // Set origin for rotation
+                        };
+
+                    }
                 }
+
 
                 // Create the matrix transform for combined translation and rotation
                 playerTransform = new MatrixTransform();
@@ -284,8 +489,8 @@ namespace VoidVenture
         {
             if (player != null)
             {
-                player.X = player.TargetX = GameCanvas.ActualWidth / 2; // Reset target position
-                player.Y = player.TargetY = GameCanvas.ActualHeight / 2;
+                player.X = player.TargetX = GameCanvas.ActualWidth * 0.5; // Reset target position
+                player.Y = player.TargetY = GameCanvas.ActualHeight * 0.2;
                 UpdatePlayerPosition();
             }
         }

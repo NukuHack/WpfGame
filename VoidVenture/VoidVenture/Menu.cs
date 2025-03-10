@@ -35,6 +35,7 @@ namespace VoidVenture
     {
         public bool DORecolorBackground = true;
         public bool DORecolorPlayer = true;
+        public bool DOSelectrPlayerManually = false;
         public bool isMenuOpened = false;
 
         // will make the popup and selecting stuff and all that but not now
