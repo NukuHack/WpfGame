@@ -4,10 +4,12 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using System.Drawing;
-using System.Numerics;
 using System.Xml.Linq;
+using System.Reflection;
 using System.Diagnostics;
+using System.Reflection.Emit;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -24,7 +26,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 
 using Microsoft.Win32.SafeHandles;
-using System.Windows.Interop;
+using Microsoft.Win32;
 
 
 
@@ -37,86 +39,124 @@ namespace VoidVenture
         public Window mainwindow;
 
         private bool isGamePaused = false;
+        public bool isMenuOpened = false;
+        public bool doDebug = false;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            Console.WriteLine("Initializing game...");
-
             mainwindow = this;
 
-            // Initialize UI
-            saveFileOverlay.Visibility = Visibility.Collapsed;
-
-            this.Loaded += MainWindow_Loded;
+            this.Loaded += (s,e) =>
+            {
+                Console.WriteLine("Initializing game...");
+                Initialize();
+            };
 
         }
 
-        private void SaveButton_Click(object sender, RoutedEventArgs e)
+
+        public void Initialize()
         {
-            SaveData();
+            InitializeUI();
+
+            if (!DOUseNoise)
+            {
+                LoadTileMap("maps/default.tmx");
+            }
+            else
+            {
+                InitializeNoiseMap();
+            }
+
+            // use underscores if not passed use s-e if they are actually passed
+            this.SizeChanged += (_, __) => MainResizeFunction();
+            this.KeyDown += (s,e) => MainKeyPressHandler(e.Key);
+            this.KeyUp += (s,e) => MainKeyReleaseHandler(e.Key);
+
+            CloseButton.Click += (_, __) => CloseButton_Click();
+            MenuButton.Click += (_, __) => MenuButton_Click();
+            SaveButton.Click += (_, __) => SaveButton_Click();
+
+            closeOverlay.Click += (_, __) => CloseOverlay_Click();
+            loadButton.Click += (_, __) => LoadButton_Click();
+            deleteButton.Click += (_, __) => DeleteButton_Click();
+            resaveButton.Click += (_, __) => ResaveButton_Click();
+            loadExternalSave.Click += (_, __) => LoadExternalSave_Click();
+            saveFileSelector.SelectionChanged += (_, __) => SaveFileSelector_SelectionChanged();
+
+            StartGameLoop();
+            TestingOnStart();
+
+            this.Focusable = true;
+            Focus();
+
         }
 
-        private void MenuButton_Click(object sender, RoutedEventArgs e)
+        public void MainResizeFunction()
         {
-            MenuOpen();
-        }
-
-        public void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-
-
-            RedrawMap();
-
+            if (!DOUseNoise)
+            {
+                RedrawTileMap();
+            }
+            else
+            {
+                RenderTerrain();
+            }
 
             Player_RePos();
+
+            InitializeUI();
+        }
+
+        public void InitializeUI()
+        {
+
+            // Initialize UI
+            SaveOverlay.Visibility = Visibility.Collapsed;
 
             // Update the canvas sizes to match the actual window size
             GameCanvas.Width = ActualWidth;
             GameCanvas.Height = ActualHeight;
+
             BackgroundCanvas.Width = ActualWidth;
             BackgroundCanvas.Height = ActualHeight;
+
             MapCanvas.Width = ActualWidth;
             MapCanvas.Height = ActualHeight;
-            Canvas.SetTop(SaveMenu, (ActualHeight - SaveMenu.Height) / 2);
-            Canvas.SetLeft(SaveMenu, (ActualWidth - SaveMenu.Width) / 2);
+
+            //DebugOverlay.Width = ActualWidth;
+            //DebugOverlay.Height = ActualHeight;
+
+
+            //SaveOverlay.Width = ActualWidth;
+            //SaveOverlay.Height = ActualHeight;
+
+
+            CenterOnCanvas(SaveMenu);
         }
 
-        public void MainWindow_Loded(object sender, RoutedEventArgs e)
+        public void CenterOnCanvas(Grid grid)
         {
-            LoadMap("maps/default.tmx");
+            Canvas.SetTop(grid, (ActualHeight - grid.Height) / 2);
+            Canvas.SetLeft(grid, (ActualWidth - grid.Width) / 2);
+        }
+
+        public void TestingOnStart()
+        {
 
             // does work but it makes the image kinda crappy
             //Cursor = CreateCursorFromBitmap(RecolorImage("Phlame_Arrow.cur"), 0, 0);
             //Cursor = new Cursor(@"C:\Users\nukuh\Desktop\c\app\VoidVenture\VoidVenture\bin\Debug\Phlame_Arrow.cur");
 
+            // should work but did not test it 
+            //var z = RecolorImage("smile.ico");
+
             // not works - too old file format I don't wanna research it more
             //var y = RecolorImage("Busy.ani");
-
-            // should work but did not test it 
-            //var z = RecolorImage("smile.cur");
-
-
-
-            this.SizeChanged += MainWindow_SizeChanged;
-            this.KeyDown += MainWindow_KeyDown;
-            this.KeyUp += MainWindow_KeyUp;
-
-            CloseButton.Click += CloseButton_Click;
-            MenuButton.Click += MenuButton_Click;
-            SaveButton.Click += SaveButton_Click;
-
-            closeOverlay.Click += CloseOverlay_Click;
-            loadButton.Click += LoadButton_Click;
-            deleteButton.Click += DeleteButton_Click;
-            resaveButton.Click += ResaveButton_Click;
-            loadExternalSave.Click += LoadExternalSave_Click;
-            saveFileSelector.SelectionChanged += SaveFileSelector_SelectionChanged;
-
-            StartGameLoop();
-
         }
+
 
         public void StartGameLoop()
         {
@@ -126,11 +166,14 @@ namespace VoidVenture
             {
                 Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS
             };
-            timer.Tick += Timer_Tick;
+            timer.Tick += (s,e) =>
+            {
+                Timer_Tick();
+            } ;
             timer.Start();
         }
 
-        public void Timer_Tick(object sender, EventArgs e)
+        public void Timer_Tick()
         {
             if (isGamePaused) return;
 
@@ -145,21 +188,25 @@ namespace VoidVenture
 
 
 
-        public void MainWindow_KeyDown(object sender, KeyEventArgs e)
+        public void MainKeyPressHandler(Key e)
         {
             Direction direction = Direction.None;
 
-            switch (e.Key)
+            switch (e)
             {
-                case Key.W: direction = Direction.Up; break;
-                case Key.S: direction = Direction.Down; break;
-                case Key.A: direction = Direction.Left; break;
-                case Key.D: direction = Direction.Right; break;
+                case Key.W: case Key.Up: 
+                    direction = Direction.Up; break;
+                case Key.S: case Key.Down: 
+                    direction = Direction.Down; break;
+                case Key.A: case Key.Left: 
+                    direction = Direction.Left; break;
+                case Key.D: case Key.Right: 
+                    direction = Direction.Right; break;
 
-                case Key.Up: direction = Direction.Up; break;
-                case Key.Down: direction = Direction.Down; break;
-                case Key.Left: direction = Direction.Left; break;
-                case Key.Right: direction = Direction.Right; break;
+                case Key.R: RegenMap(); break;
+                case Key.T: ShowDebugInfo(); break;
+                case Key.P: ReLoadImage(); break;
+                case Key.F: DoDebug(); break;
 
                 case Key.Space: Hover(true); break;
 
@@ -167,22 +214,32 @@ namespace VoidVenture
             }
 
 
-            if (direction != Direction.None && player != null)
+            if (direction != Direction.None)
             {
-                player.SetTargetPosition(direction, GameCanvas.ActualWidth, GameCanvas.ActualHeight, collidableTiles);
+                player.UpdateRotation(direction);
+
+                if (!Keyboard.IsKeyDown(Key.LeftCtrl))
+                {
+                    if (player != null)
+                        player.SetTargetPosition(direction, GameCanvas.ActualWidth, GameCanvas.ActualHeight, collidableTiles);
+                }
+                else if (DOUseNoise)
+                {
+                    MoveTerrain(direction);
+                }
             }
         }
 
-        public void MainWindow_KeyUp(object sender, KeyEventArgs e)
+        public void MainKeyReleaseHandler(Key e)
         {
-            switch (e.Key)
+            switch (e)
             {
                 case Key.Space: Hover(false); break;
             }
         }
 
 
-        public void CloseButton_Click(object sender, RoutedEventArgs e)
+        public void CloseButton_Click()
         {
             PauseGame();
 
@@ -208,6 +265,11 @@ namespace VoidVenture
             else
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+        private void ShowMessage(string message)
+        {
+            MessageBox.Show(message);
+        }
+
 
         public void CloseAsk()
         {

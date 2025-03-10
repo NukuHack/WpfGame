@@ -5,8 +5,11 @@ using System.Text;
 using System.Linq;
 using System.Drawing;
 using System.Xml.Linq;
+using System.Reflection;
 using System.Diagnostics;
+using System.Reflection.Emit;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -22,6 +25,10 @@ using System.Windows.Navigation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 
+using Microsoft.Win32.SafeHandles;
+using Microsoft.Win32;
+
+
 namespace VoidVenture
 {
     public class GameSave
@@ -33,10 +40,15 @@ namespace VoidVenture
 
     public partial class MainWindow : Window
     {
-        public bool DORecolorBackground = true;
-        public bool DORecolorPlayer = true;
-        public bool DOSelectrPlayerManually = false;
-        public bool isMenuOpened = false;
+        public bool DORecolorBackground = true; // what it says, if DOUseNoise is true this is useless
+        public bool DORecolorPlayer = true; // what it says
+        public bool DOSelectPlayerManually = false; // adds the option to chose the player (img) by the user
+        public bool DOUseNoise = true; // terrain gen intead of pre-defined tiles
+        public bool DORandomizeTerrainColors = true; // this will make the terrain have random colors, if DOUseNoise is false this is useless
+        public bool DORandomizeTerrainMulti = false; // this will make the terrain have random multi, if DOUseNoise is false this is useless
+        public bool DORandomizeTerrainHeights = true; // this will make the terrain have randomly scaled layers, if DOUseNoise is false this is useless
+
+
 
         // will make the popup and selecting stuff and all that but not now
 
@@ -50,15 +62,14 @@ namespace VoidVenture
         );
 
 
-
-        private void ShowMessage(string message)
+        private void SaveButton_Click()
         {
-            MessageBox.Show(message);
+            SaveData();
         }
 
-        private void ShowErrorMessage(string message)
+        private void MenuButton_Click()
         {
-            MessageBox.Show($"Error: {message}");
+            MenuOpen();
         }
 
         public void TryMenuSwitch()
@@ -84,17 +95,17 @@ namespace VoidVenture
 
                 saveFileSelector.ItemsSource = saveFiles;
                 saveFileSelector.SelectedIndex = 0;
-                saveFileOverlay.Visibility = Visibility.Visible;
+                SaveOverlay.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
-                ShowErrorMessage(ex.Message);
+                ErrorMessage(ex);
             }
         }
         public void MenuClose()
         {
             isMenuOpened = false;
-            saveFileOverlay.Visibility = Visibility.Collapsed; // Close the overlay
+            SaveOverlay.Visibility = Visibility.Collapsed; // Close the overlay
             ResumeGame();
         }
         
@@ -109,7 +120,7 @@ namespace VoidVenture
             }
             catch (Exception ex)
             {
-                ShowErrorMessage(ex.Message);
+                ErrorMessage(ex);
             }
         }
 
@@ -146,7 +157,7 @@ namespace VoidVenture
                             .ToArray();
         }
 
-        private void SaveFileSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void SaveFileSelector_SelectionChanged()
         {
             if (saveFileSelector.SelectedItem == null) return;
 
@@ -173,7 +184,7 @@ namespace VoidVenture
             }
         }
 
-        private void LoadButton_Click(object sender, RoutedEventArgs e)
+        private void LoadButton_Click()
         {
             if (saveFileSelector.SelectedItem == null)
             {
@@ -216,7 +227,7 @@ namespace VoidVenture
             }
         }
 
-        private void DeleteButton_Click(object sender, RoutedEventArgs e)
+        private void DeleteButton_Click()
         {
             if (saveFileSelector.SelectedItem == null)
             {
@@ -234,7 +245,7 @@ namespace VoidVenture
             }
         }
 
-        private void ResaveButton_Click(object sender, RoutedEventArgs e)
+        private void ResaveButton_Click()
         {
             if (saveFileSelector.SelectedItem == null)
             {
@@ -263,7 +274,7 @@ namespace VoidVenture
             }
         }
 
-        private void LoadExternalSave_Click(object sender, RoutedEventArgs e)
+        private void LoadExternalSave_Click()
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -291,12 +302,12 @@ namespace VoidVenture
                 }
                 catch (Exception ex)
                 {
-                    ShowErrorMessage($"Error loading external save file: {ex.Message}");
+                    ErrorMessage(ex, "Error loading external save file");
                 }
             }
         }
 
-        private void CloseOverlay_Click(object sender, RoutedEventArgs e)
+        private void CloseOverlay_Click()
         {
             MenuClose();
         }
@@ -351,7 +362,7 @@ namespace VoidVenture
             }
             catch (Exception ex)
             {
-                ShowErrorMessage($"Error saving game: {ex.Message}");
+                ErrorMessage(ex, "Error saving game");
             }
         }
 

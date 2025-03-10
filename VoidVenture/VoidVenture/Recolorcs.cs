@@ -5,8 +5,11 @@ using System.Text;
 using System.Linq;
 using System.Drawing;
 using System.Xml.Linq;
+using System.Reflection;
 using System.Diagnostics;
+using System.Reflection.Emit;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -22,10 +25,114 @@ using System.Windows.Navigation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 
+using Microsoft.Win32.SafeHandles;
+using Microsoft.Win32;
+
+
 
 namespace VoidVenture
 {
 
+
+    public class TerrainColorGenerator
+    {
+        private static Random random = new Random();
+
+        public static List<Color> GenerateColors(int count = 6)
+        {
+            var colors = new List<Color>();
+
+            for (int i = 0; i < count; i++)
+            {
+                // Get biome parameters based on elevation level (index)
+                var (hueMin, hueMax, satMin, satMax, lightMin, lightMax) = GetBiomeParams(i, count);
+
+                // Generate random HSL within biome constraints
+                double h = RandomRange(hueMin, hueMax);
+                double s = RandomRange(satMin, satMax);
+                double l = RandomRange(lightMin, lightMax);
+
+                // Convert to RGB and add to list
+                colors.Add(HslToRgb(h, s, l));
+            }
+
+            return colors;
+        }
+
+        private static (double, double, double, double, double, double) GetBiomeParams(int index, int total)
+        {
+            double segment = (double)index / (total - 1); // 0 (low elevation) to 1 (high)
+
+            // Define biome templates as tuples: (hueMin, hueMax, satMin, satMax, lightMin, lightMax)
+            var biomeTemplates = new List<(double, double, double, double, double, double)>
+        {
+            (180, 240, 10, 30, 10, 30),   // Deep water (dark blue-gray)
+            (200, 270, 15, 40, 20, 40),   // Shallow water (dark cyan-blue)
+            (30, 90, 10, 30, 30, 50),     // Sand/beach (dark yellow-brown)
+            (40, 100, 15, 40, 40, 60),    // Desert (dark warm brown)
+            (60, 160, 10, 30, 30, 50),    // Grassland/forest (dark green-gray)
+            (80, 180, 10, 30, 40, 60),    // Swamp/marsh (dark olive-green)
+            (10, 70, 5, 25, 20, 40),      // Mountain rock (dark gray-brown)
+            (0, 40, 5, 25, 30, 50),       // Volcanic rock (dark red-brown)
+            (0, 360, 0, 10, 60, 80),      // Snow (very desaturated white)
+            (200, 300, 5, 20, 50, 70)     // Ice (dark blue-gray)
+        };
+
+            // Randomly select a biome template
+            var randomTemplate = biomeTemplates[random.Next(biomeTemplates.Count)];
+
+            // Adjust lightness based on elevation segment for progression
+            var (hueMin, hueMax, satMin, satMax, lightMin, lightMax) = randomTemplate;
+            lightMin += segment * 30; // Increase lightness at higher elevations (but still darker overall)
+            lightMax += segment * 30;
+
+            return (hueMin, hueMax, satMin, satMax, lightMin, lightMax);
+        }
+
+        private static double RandomRange(double min, double max)
+        {
+            return min + (random.NextDouble() * (max - min));
+        }
+
+        private static Color HslToRgb(double h, double s, double l)
+        {
+            double r, g, b;
+
+            if (s == 0)
+            {
+                r = g = b = l / 100; // Achromatic
+            }
+            else
+            {
+                double q = l < 50 ? l * (1 + s / 100) : l + s - (l * s) / 100;
+                double p = (2 * l - q) / 100;
+                h /= 360;
+                double tR = h + 1.0 / 3;
+                double tG = h;
+                double tB = h - 1.0 / 3;
+
+                r = HueToRgb(p, q / 100, tR);
+                g = HueToRgb(p, q / 100, tG);
+                b = HueToRgb(p, q / 100, tB);
+            }
+
+            return Color.FromArgb(
+                (byte)(255),
+                (byte)(r * 255),
+                (byte)(g * 255),
+                (byte)(b * 255));
+        }
+
+        private static double HueToRgb(double p, double q, double t)
+        {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1.0 / 6) return p + (q - p) * 6 * t;
+            if (t < 1.0 / 2) return q;
+            if (t < 2.0 / 3) return p + (q - p) * (2.0 / 3 - t) * 6;
+            return p;
+        }
+    }
 
     public class Palette
     {
@@ -78,34 +185,38 @@ namespace VoidVenture
         }
     }
 
-    public partial class MainWindow : Window
+    public class LastColored
     {
+        public string imgSource;
         public Palette _palette;
         public Palette _randomizedPlette;
         public WriteableBitmap _originalBitmap;
         public WriteableBitmap _indexedBitmap;
         public WriteableBitmap _recoloredBitmap;
+    }
 
-        public string imgSource;
+    public partial class MainWindow : Window
+    {
+        public LastColored tocolor = new LastColored();
 
         public WriteableBitmap RecolorImage(string imgSourceRaw)
         {
             try
             {
-                imgSource = imgSourceRaw;
-                _originalBitmap = LoadBitmap(imgSource);
-                _palette = CreatePalette(_originalBitmap);
-                if (_palette.Colors.Count > 256)
+                tocolor.imgSource = imgSourceRaw;
+                tocolor._originalBitmap = LoadBitmap(tocolor.imgSource);
+                tocolor._palette = CreatePalette(tocolor._originalBitmap);
+                if (tocolor._palette.Colors.Count > 256)
                 {
                     throw new Exception("Image has too many colors (>256). Reduce colors to 256 or less.");
                 }
-                _indexedBitmap = ConvertToIndexed(_originalBitmap, _palette);
-                _randomizedPlette = Palette.CreateRandomized(_palette);
-                _recoloredBitmap = RecolorIndexedImage(_indexedBitmap, _palette, _randomizedPlette);
+                tocolor._indexedBitmap = ConvertToIndexed(tocolor._originalBitmap, tocolor._palette);
+                tocolor._randomizedPlette = Palette.CreateRandomized(tocolor._palette);
+                tocolor._recoloredBitmap = RecolorIndexedImage(tocolor._indexedBitmap, tocolor._palette, tocolor._randomizedPlette);
                 // Ensure the final recolored bitmap is valid
-                if (_recoloredBitmap?.PixelWidth == 0 || _recoloredBitmap?.PixelHeight == 0)
+                if (tocolor._recoloredBitmap?.PixelWidth == 0 || tocolor._recoloredBitmap?.PixelHeight == 0)
                     throw new Exception("Recolored image has invalid dimensions.");
-                return _recoloredBitmap;
+                return tocolor._recoloredBitmap;
             }
             catch (OutOfMemoryException)
             {
@@ -211,7 +322,7 @@ namespace VoidVenture
             else
             {
                 MessageBox.Show($"Image extension not supported: '{Path.GetExtension(filePath)}'", "Image Recolor Error");
-                throw new ArgumentException($"Image to load '{imgSource}' is not formatted to my liking.");
+                throw new ArgumentException($"Image to load '{tocolor.imgSource}' is not formatted to my liking.");
                 // if you are here it means the img you want to load is not and old 8-bit image and not an usual 32-bit image
                 // now it should support .png and .ico and .cur
                 // in that case write your own palette extracting function, cu's I'm lazy and I don't have that kind of files
@@ -224,7 +335,7 @@ namespace VoidVenture
             else
             {
                 MessageBox.Show($"Image format not supported: '{bitmapSource.Format}'", "Image Recolor Error");
-                throw new ArgumentException($"Image to load '{imgSource}' is not formatted to my liking.");
+                throw new ArgumentException($"Image to load '{tocolor.imgSource}' is not formatted to my liking.");
                 // if you are here it means the img you want to load is not and old 8-bit image and not an usual 32-bit image
                 // now it should support .png and .ico and .cur
                 // in that case write your own palette extracting function, cu's I'm lazy and I don't have that kind of files
@@ -345,10 +456,10 @@ namespace VoidVenture
             return new Cursor(stream);
         }
 
-        // help for .cur re converting
+        // help for .cur re-converting
         public static int GetImageDataSize(BitmapSource bitmap)
         {
-            int headerSize = 40; // BITMAPINFOHEADER size
+            int headerSize = 40; // BITMAPINFOHEADER size - took me atleast two hours to figure it out it was missing ...
             int xorSize = bitmap.PixelWidth * bitmap.PixelHeight * 4;
             int maskSize = ((bitmap.PixelWidth + 31) / 32 * 4) * bitmap.PixelHeight;
             return headerSize + xorSize + maskSize;
