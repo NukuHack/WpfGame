@@ -73,12 +73,13 @@ Some basic C#, made for some testing and to have fun developing it.
 1. **Movement**:  
    - Arrow keys or WASD to move  
    - Spacebar for hover ability  
-   - ESC to open menu
+   - ESC to open menu  
 
 2. **Menu Controls**:  
    - Load/Save/Delete game progress  
    - Import external save files  
-   - Customize game settings
+   - Export current saves  
+   - Customize game settings  
 
 ---
 
@@ -95,7 +96,7 @@ git clone https://github.com/NukuHack/WpfGame.git
 - WPF development workload installed
 
 **3. Run the game**  
-- You could try running the `.exe` file in the `VoidVenture\bin\Debug`, but there is a chance I did not compile it to the latest version, in that case open `VoidVenture.sln` and press F5 to build/run
+- You could try running the `.exe` file in the `VoidVenture\bin\Debug`, but there is a chance I did not compile it to the latest version, in that case open `VoidVenture.sln` with [VisualStudio](https://visualstudio.microsoft.com/) and press F5 to build/run
 
 ---
 
@@ -108,11 +109,16 @@ git clone https://github.com/NukuHack/WpfGame.git
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a pull request
 
-Looking for help with (not really):  
-✅ Procedural generation  
-✅ Sound system implementation  
+Plans for the future:  
+✅ Tutorial (just basic stuff for begginers)  
+✅ Save+Load progress (maybe encryption)  
+✅ Extra decor on terrain (ores/plants/biomes)  
+✅ Procedural generation optimization (mainly the coloring)  
+✅ Refined chunk system (working updates)  
+✅ Sound system implementation (background/general/ui)  
 ✅ Performance optimizations  
-✅ macOS/Linux compatibility layer
+✅ UI/HUD optimizations (visual/user friendly)  
+✅ macOS/Linux compatibility layer (prop not)  
 
 ---
 
