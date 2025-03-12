@@ -58,8 +58,9 @@ Some basic C#, made for some testing and to have fun developing it.
 <a id="technical-highlights"></a>
 ## 🛠️ Technical Highlights 
 
-**1. Collision Detection System**  
-- Tile-based collision using `Rect` intersections with dynamic bounds checking.
+**1. 'Dual' Map System**  
+- Tile-based or PerlinNoise based terrain.
+- Pre-defined or Realtime-generated landscape.
 
 **2. Palette-Based Recoloring**  
 - Advanced image processing pipeline.
