@@ -73,11 +73,14 @@ namespace VoidVenture
             Height = OriginHeight * BaseScaleFactor * _window.Scale;
         }
 
-        public void Update(double gravity, List<Rect> collidableTiles = null, double[] heightMap = null)
+        public void Update(
+            double gravity, List<Rect> collidableTiles = null,
+            double[] heightMap = null, bool doCollCheck = true)
         {
             ApplyGravity(gravity);
             Move();
-            HandleCollisions(collidableTiles, heightMap);
+            if (doCollCheck)
+                HandleCollisions(collidableTiles, heightMap);
             UpdateTransform();
         }
 
@@ -100,43 +103,48 @@ namespace VoidVenture
             Y += Velocity.Y;
 
             if (_window.DOUseNoiseTerrain)
-            {
-                // should make this more smooth
-                // make bigger jumps if the player moves more
-                if (X >= _window.ActualWidth * edge)
-                {
-                    double ff = X - _window.ActualWidth * edge;
-                    _window.MoveOffset(Direction.Right, ff);
-                    X -= ff;
-                }
-                else if (X <= _window.ActualWidth * (1- edge))
-                {
-                    double ff = X - _window.ActualWidth * (1 - edge);
-                    _window.MoveOffset(Direction.Right, ff);
-                    X -= ff;
-                }
-
-                if (Y >= _window.ActualHeight * edge)
-                {
-                    double ff = Y - _window.ActualHeight * edge;
-                    _window.MoveOffset(Direction.Down, ff);
-                    Y -= ff;
-                }// doubled it at bootm 'cus why not
-                else if (Y <= _window.ActualHeight * (1 - edge) * 2)
-                {
-                    double ff = Y - _window.ActualHeight * (1 - edge) * 2;
-                    _window.MoveOffset(Direction.Down, ff);
-                    Y -= ff;
-                }
-            }
+                HandleEdgeMovement();
             else
-            {
-                X = Math2.Clamp(X, 0, _window.currentWidth - Width);
-                Y = Math2.Clamp(Y, 0, _window.currentHeight - Height);
-            }
+                ClampPosition();
 
             // Apply friction after collision resolution
             Velocity = new Vector(Velocity.X * friction, Velocity.Y * friction);
+        }
+
+        private void HandleEdgeMovement()
+        {
+            double edge = 0.95;
+            if (X >= _window.ActualWidth * edge)
+            {
+                double ff = X - _window.ActualWidth * edge;
+                _window.MoveOffset(Direction.Right, ff);
+                X -= ff;
+            }
+            else if (X <= _window.ActualWidth * (1 - edge))
+            {
+                double ff = X - _window.ActualWidth * (1 - edge);
+                _window.MoveOffset(Direction.Right, ff);
+                X -= ff;
+            }
+
+            if (Y >= _window.ActualHeight * edge)
+            {
+                double ff = Y - _window.ActualHeight * edge;
+                _window.MoveOffset(Direction.Down, ff);
+                Y -= ff;
+            }
+            else if (Y <= _window.ActualHeight * (1 - edge) * 2)
+            {
+                double ff = Y - _window.ActualHeight * (1 - edge) * 2;
+                _window.MoveOffset(Direction.Down, ff);
+                Y -= ff;
+            }
+        }
+
+        private void ClampPosition()
+        {
+            X = Math2.Clamp(X, 0, _window.currentWidth - Width);
+            Y = Math2.Clamp(Y, 0, _window.currentHeight - Height);
         }
 
         private void HandleCollisions(List<Rect> collidableTiles = null, double[] heightMap = null)
@@ -237,7 +245,7 @@ namespace VoidVenture
                 isOnGround = false;
 
                 // Variables to track the maximum penetration depth
-                double maxPenetration = 0.5;
+                double maxPenetration = 0.2;
                 double penetration = 0;
                 bool hasCollision = false;
 
@@ -257,23 +265,17 @@ namespace VoidVenture
 
                         if (penetration > maxPenetration)
                         {
-                            penetration -= maxPenetration;
+                            //TODO fix this :
+                            Y -= (penetration - maxPenetration);
                             hasCollision = true;
+                            Velocity = new Vector(Velocity.X * friction, Velocity.Y * (-0.01)); // Stop vertical movement
+                            isOnGround = true; // Player is on the ground
                         }
                     }
                 }
 
-                if (hasCollision)
-                {
-                    // Resolve collision by moving the player up
-                    Y -= penetration;
-                    Velocity = new Vector(Velocity.X * friction, Velocity.Y * (1 - friction)); // Stop vertical movement
-                    isOnGround = true; // Player is on the ground
-                }
-                else
-                {
+                if (!hasCollision)
                     isOnGround = false; // No ground contact
-                }
             }
 
             // Update bounds after collision resolution
@@ -345,27 +347,18 @@ namespace VoidVenture
         }
 
 
+        private static readonly Dictionary<Direction, double> RotationAngles =
+            new Dictionary<Direction, double>()
+        {
+            { Direction.Left, 180 },
+            { Direction.Right, 0 },
+            { Direction.Up, 270 },
+            { Direction.Down, 90 }
+        };
+
         public void UpdateRotation(Direction direction)
         {
-            // Determine rotation angle based on movement direction
-            switch (direction)
-            {
-                case Direction.Left:
-                    Rotation = 180; // Rotate 180 degrees
-                    break;
-                case Direction.Right:
-                    Rotation = 0; // No rotation
-                    break;
-                case Direction.Up:
-                    Rotation = 270; // Rotate 270 degrees (facing up)
-                    break;
-                case Direction.Down:
-                    Rotation = 90; // Rotate 90 degrees (facing down)
-                    break;
-                default:
-                    Rotation = 0; // Reset rotation if no movement
-                    break;
-            }
+            Rotation = RotationAngles.ContainsKey(direction) ? RotationAngles[direction] : 0;
         }
 
 

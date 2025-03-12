@@ -33,7 +33,6 @@ using Microsoft.Win32;
 namespace VoidVenture
 {
 
-
     public class PerlinNoise
     {
         private readonly int[] permutation = new int[512];
@@ -58,7 +57,7 @@ namespace VoidVenture
 
         public double Noise1D(double x)
         {
-            int X = (int)Math.Floor(x) & 255;
+            int X = (int)x & 255;
             x -= Math.Floor(x);
             double u = Fade(x);
 
@@ -71,7 +70,11 @@ namespace VoidVenture
             return a + u * (b - a);
         }
 
-        private static double Fade(double t) => t * t * t * (t * (t * 6 - 15) + 10);
+        private static double Fade(double t)
+        {
+            // Optimized fade function using polynomial approximation
+            return t * t * t * (t * (t * 6 - 15) + 10);
+        }
     }
 
 
@@ -88,11 +91,32 @@ namespace VoidVenture
         public Color StoneColor;
     }
 
+
+    public class TerrainChunk
+    {
+        public int StartX { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public double[] Heights { get; set; }
+        public uint[,] Pixels { get; set; }
+
+        public TerrainChunk(int startX, int width, int height)
+        {
+            StartX = startX;
+            Width = width;
+            Height = height;
+            Heights = new double[width];
+            Pixels = new uint[height, width];
+        }
+    }
+
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
+
         public PerlinNoise noiseGenerator;
         public WriteableBitmap terrainBitmap;
         public int currentWidth, currentHeight;
@@ -104,7 +128,7 @@ namespace VoidVenture
         public double[,] noiseDebug;
         public DispatcherTimer timer;
         public uint[,] pixels;
-        public double[] waterLUT;
+        public double[] waterDepthLUT;
         public Point? _moveStartPoint;
         public int octaveEase = 10;
         public bool inMouseDown = false;
@@ -137,6 +161,13 @@ namespace VoidVenture
 
             this.SizeChanged += (s, e) =>
             {
+                // Update transform
+                terrainScaleTransform.ScaleX = currentWidth / (double)terrainImage.Source.Width;
+                terrainScaleTransform.ScaleY = currentHeight / (double)terrainImage.Source.Height;
+
+                // Update the player's state (gravity, collision, etc.)
+                player.Update(gravity, null, columnHeights, false);
+
                 noiseDebug = new double[currentWidth, 2];
                 RenderTerrain();
             };
@@ -170,7 +201,7 @@ namespace VoidVenture
                     _moveStartPoint = currentPos;
 
                     // Update the player's state (gravity, collision, etc.)
-                    player.Update(gravity, null, columnHeights);
+                    player.Update(gravity, null, columnHeights, false);
 
                     // Regenerate the terrain with the new offsets
                     RenderTerrain();
@@ -217,7 +248,7 @@ namespace VoidVenture
                 player.Y = mousePos.Y + (playerYOld - mousePos.Y) * (Scale / oldScale);
 
                 // Update the player's state (gravity, collision, etc.)
-                player.Update(gravity, null, columnHeights);
+                player.Update(gravity, null, columnHeights, false);
 
                 // Regenerate terrain with the new scale and offsets
                 RenderTerrain();
@@ -269,7 +300,7 @@ namespace VoidVenture
 
             // Get precomputed values
             double terrainHeight = columnHeights[x];
-            double waterLevel = waterLUT[x];
+            double waterLevel = waterDepthLUT[x];
 
             // Determine material
             string material;
@@ -417,6 +448,7 @@ namespace VoidVenture
             seed = Environment.TickCount;
             noiseGenerator = new PerlinNoise(seed);
             // Re-render terrain with updated parameters
+            //RenderTerrainInChunks();
             RenderTerrain();
         }
 
@@ -465,41 +497,16 @@ namespace VoidVenture
                 StoneColor = StoneColor,
             };
 
-            // Precompute sky gradient LUT
-            var skyLut = new uint[currentHeight];
-            double invWidth = 1.0 / currentWidth;
-            for (int y = 0; y < currentHeight; y++)
-            {
-                double factor = Math.Pow(1 - y * invWidth, 0.8);
-                skyLut[y] = 0xFF000000 | (uint)(
-                    (byte)(SkyColor.R * factor) << 16 |
-                    (byte)(SkyColor.G * factor) << 8 |
-                    (byte)(SkyColor.B * factor));
-            }
-
-            // Precompute water gradient LUT
-            var waterLut = new uint[51]; // Depth 0-50
-            for (int d = 0; d <= 50; d++)
-            {
-                double ratio = d / 50.0;
-                //ratio = Math2.Clamp(ratio, 0, 1);
-                waterLut[d] = 0xFF000000 | (uint)(
-                        (byte)(WaterColor.R + (WaterDeepColor.R - WaterColor.R) * ratio) << 16 |
-                        (byte)(WaterColor.G + (WaterDeepColor.G - WaterColor.G) * ratio) << 8 |
-                        (byte)(WaterColor.B + (WaterDeepColor.B - WaterColor.B) * ratio)
-                    );
-            }
+            var (skyLut, waterLut) = PrecomputeColors();
 
             // Precompute inverse depths for terrain blending
-            double invGrass = 1.0 / GrassDepth * (1 / Scale);
-            double invDirt = 1.0 / (DirtDepth - GrassDepth) * (1 / Scale);
-            double invStone = 1.0 / (currentWidth - DirtDepth) * (1 / Scale);
 
             // Render terrain in parallel
             Parallel.For(0, currentWidth, x =>
             {
                 double terrainHeight = columnHeights[x];
-                double localWaterY = waterLUT[x];
+                double localWaterY = waterDepthLUT[x];
+                uint[] gradientMap = GenerateColorLUT(terrainHeight, x, localWaterY, gradientConfig);
 
                 for (int y = 0; y < currentHeight; y++)
                 {
@@ -524,35 +531,7 @@ namespace VoidVenture
                         }
                         else
                         {
-                            double delta = y - terrainHeight;
-                            double grass = Math2.Clamp(delta * invGrass, 0, 1);
-                            double dirt = Math2.Clamp((delta - GrassDepth) * invDirt, 0, 1);
-                            double stone = Math2.Clamp((delta - DirtDepth) * invStone, 0, 1);
-                            bool sunk = y > localWaterY - 5;
-
-                            byte baseR = sunk ? gradientConfig.SandColor.R : gradientConfig.GrassColor.R;
-                            byte baseG = sunk ? gradientConfig.SandColor.G : gradientConfig.GrassColor.G;
-                            byte baseB = sunk ? gradientConfig.SandColor.B : gradientConfig.GrassColor.B;
-
-                            byte r = (byte)(
-                                baseR * (1 - grass) +
-                                gradientConfig.DirtColor.R * grass * (1 - dirt) +
-                                gradientConfig.StoneColor.R * dirt * (1 - stone) +
-                                gradientConfig.StoneColor.R * stone);
-
-                            byte g = (byte)(
-                                baseG * (1 - grass) +
-                                gradientConfig.DirtColor.G * grass * (1 - dirt) +
-                                gradientConfig.StoneColor.G * dirt * (1 - stone) +
-                                gradientConfig.StoneColor.G * stone);
-
-                            byte b = (byte)(
-                                baseB * (1 - grass) +
-                                gradientConfig.DirtColor.B * grass * (1 - dirt) +
-                                gradientConfig.StoneColor.B * dirt * (1 - stone) +
-                                gradientConfig.StoneColor.B * stone);
-
-                            color = 0xFF000000 | ((uint)r << 16) | ((uint)g << 8) | b;
+                            color = gradientMap[y];
                         }
                     }
 
@@ -565,17 +544,250 @@ namespace VoidVenture
 
             terrainBitmap.WritePixels(new Int32Rect(0, 0, currentWidth, currentHeight), pixels, currentWidth * 4, 0);
             terrainImage.Source = terrainBitmap;
-
-            // Update transform
-            terrainScaleTransform.ScaleX = currentWidth / (double)terrainImage.Source.Width;
-            terrainScaleTransform.ScaleY = currentHeight / (double)terrainImage.Source.Height;
+            
         }
+
+
+        private void RenderTerrainInChunks()
+        {
+
+            // Get system DPI
+            var source = PresentationSource.FromVisual(this);
+            double dpiX = 96.0, dpiY = 96.0;
+            if (source != null)
+            {
+                dpiX = 96.0 * source.CompositionTarget.TransformToDevice.M11;
+                dpiY = 96.0 * source.CompositionTarget.TransformToDevice.M22;
+            }
+
+            // Create a new WriteableBitmap with the updated dimensions and DPI
+            terrainBitmap = new WriteableBitmap(currentWidth, currentHeight, dpiX, dpiY, PixelFormats.Bgra32, null);
+
+            // Recreate the pixel array
+            pixels = new uint[currentHeight, currentWidth];
+
+            // Recompute octave parameters if needed
+            if (octaveFrequencies == null || octaveFrequencies.Length != 10 || Math.Abs(octaveFrequencies[0] - 0.003 * Scale) > 1e-6)
+            {
+                ComputeOctaveParameters();
+            }
+
+            // Reuse columnHeights array if possible
+            if (columnHeights == null || columnHeights.Length != currentWidth)
+            {
+                columnHeights = new double[currentWidth];
+            }
+            ComputeNoiseValues();
+
+
+            int chunkSize = 256; // Size of each chunk
+            int numChunks = (currentWidth + chunkSize - 1) / chunkSize;
+
+            var chunks = new List<TerrainChunk>();
+
+            Parallel.For(0, numChunks, chunkIndex =>
+            {
+                int startX = chunkIndex * chunkSize;
+                int width = Math.Min(chunkSize, currentWidth - startX);
+
+                var chunk = new TerrainChunk(startX, width, currentHeight);
+                GenerateChunk(chunk);
+                chunks.Add(chunk);
+            });
+
+            // Combine chunks into the final bitmap
+            foreach (var chunk in chunks)
+            {
+                for (int x = 0; x < chunk.Width; x++)
+                {
+                    for (int y = 0; y < currentHeight; y++)
+                    {
+                        pixels[y, chunk.StartX + x] = chunk.Pixels[y, x];
+                    }
+                }
+            }
+
+            terrainBitmap.WritePixels(new Int32Rect(0, 0, currentWidth, currentHeight), pixels, currentWidth * 4, 0);
+            terrainImage.Source = terrainBitmap;
+        }
+
+        private void GenerateChunk(TerrainChunk chunk)
+        {
+            for (int x = 0; x < chunk.Width; x++)
+            {
+                double noiseValue = 0;
+                double worldX = (chunk.StartX + x + offsetX) * Scale;
+
+                for (int o = 0; o < octaveEase; o++)
+                {
+                    double sampleX = worldX * octaveFrequencies[o] + octaveOffsets[o];
+                    noiseValue += noiseGenerator.Noise1D(sampleX) * octaveAmplitudes[o];
+                }
+
+                noiseValue /= normalizationFactor;
+                noiseValue = Math.Pow(Math.Abs(noiseValue), 1.2) * Math.Sign(noiseValue);
+
+                double normalizedValue = (noiseValue + 1) * 0.5;
+                chunk.Heights[x] = normalizedValue * 1000 * Scale + offsetY;
+
+                for (int y = 0; y < currentHeight; y++)
+                {
+                    chunk.Pixels[y, x] = GetPixelColor(y, chunk.Heights[x]);
+                }
+            }
+        }
+
+
+        private uint GetPixelColor(int y, double terrainHeight)
+        {
+            if (y < terrainHeight)
+            {
+                // Below terrain height: Water or sky
+                if (y > WaterLevel)
+                {
+                    int depth = (int)Math.Min(y - WaterLevel, 50);
+                    return GetWaterColor(depth);
+                }
+                else
+                {
+                    return GetSkyColor(y);
+                }
+            }
+            else
+            {
+                double invGrass = 1.0 / GrassDepth * (1 / Scale);
+                double invDirt = 1.0 / (DirtDepth - GrassDepth) * (1 / Scale);
+                double invStone = 1.0 / (currentWidth - DirtDepth) * (1 / Scale);
+
+                // Above terrain height: Grass, dirt, or stone
+                double delta = y - terrainHeight;
+                double grass = Math2.Clamp(delta * invGrass, 0, 1);
+                double dirt = Math2.Clamp((delta - GrassDepth) * invDirt, 0, 1);
+                double stone = Math2.Clamp((delta - DirtDepth) * invStone, 0, 1);
+
+                bool sunk = y > WaterLevel - 5;
+                byte baseR = sunk ? SandColor.R : GrassColor.R;
+                byte baseG = sunk ? SandColor.G : GrassColor.G;
+                byte baseB = sunk ? SandColor.B : GrassColor.B;
+
+                byte r = (byte)(
+                    baseR * (1 - grass) +
+                    DirtColor.R * grass * (1 - dirt) +
+                    StoneColor.R * dirt * (1 - stone) +
+                    StoneColor.R * stone);
+
+                byte g = (byte)(
+                    baseG * (1 - grass) +
+                    DirtColor.G * grass * (1 - dirt) +
+                    StoneColor.G * dirt * (1 - stone) +
+                    StoneColor.G * stone);
+
+                byte b = (byte)(
+                    baseB * (1 - grass) +
+                    DirtColor.B * grass * (1 - dirt) +
+                    StoneColor.B * dirt * (1 - stone) +
+                    StoneColor.B * stone);
+
+                return 0xFF000000 | ((uint)r << 16) | ((uint)g << 8) | b;
+            }
+        }
+
+        private uint GetWaterColor(int depth)
+        {
+            double ratio = Math2.Clamp(depth / 50.0, 0, 1);
+            return 0xFF000000 | (uint)(
+                (byte)(WaterColor.R + (WaterDeepColor.R - WaterColor.R) * ratio) << 16 |
+                (byte)(WaterColor.G + (WaterDeepColor.G - WaterColor.G) * ratio) << 8 |
+                (byte)(WaterColor.B + (WaterDeepColor.B - WaterColor.B) * ratio));
+        }
+
+        private uint GetSkyColor(int y)
+        {
+            double factor = Math.Pow(1 - y / (double)currentHeight, 0.8);
+            return 0xFF000000 | (uint)(
+                (byte)(SkyColor.R * factor) << 16 |
+                (byte)(SkyColor.G * factor) << 8 |
+                (byte)(SkyColor.B * factor));
+        }
+
+        private uint[] GenerateColorLUT(double height,int x, double localWaterY, GradientConfig gradientConfig)
+        {
+            uint[] lut = new uint[currentHeight];
+
+            double invGrass = 1.0 / GrassDepth * (1 / Scale);
+            double invDirt = 1.0 / (DirtDepth - GrassDepth) * (1 / Scale);
+            double invStone = 1.0 / (currentWidth - DirtDepth) * (1 / Scale);
+
+            for (int y = 0; y < currentHeight; y++)
+            {
+                double delta = y - height;
+                double grass = Math2.Clamp(delta * invGrass, 0, 1);
+                double dirt = Math2.Clamp((delta - GrassDepth) * invDirt, 0, 1);
+                double stone = Math2.Clamp((delta - DirtDepth) * invStone, 0, 1);
+                bool sunk = y > localWaterY - 5;
+
+                byte baseR = sunk ? gradientConfig.SandColor.R : gradientConfig.GrassColor.R;
+                byte baseG = sunk ? gradientConfig.SandColor.G : gradientConfig.GrassColor.G;
+                byte baseB = sunk ? gradientConfig.SandColor.B : gradientConfig.GrassColor.B;
+
+                byte r = (byte)(
+                    baseR * (1 - grass) +
+                    gradientConfig.DirtColor.R * grass * (1 - dirt) +
+                    gradientConfig.StoneColor.R * dirt * (1 - stone) +
+                    gradientConfig.StoneColor.R * stone);
+
+                byte g = (byte)(
+                    baseG * (1 - grass) +
+                    gradientConfig.DirtColor.G * grass * (1 - dirt) +
+                    gradientConfig.StoneColor.G * dirt * (1 - stone) +
+                    gradientConfig.StoneColor.G * stone);
+
+                byte b = (byte)(
+                    baseB * (1 - grass) +
+                    gradientConfig.DirtColor.B * grass * (1 - dirt) +
+                    gradientConfig.StoneColor.B * dirt * (1 - stone) +
+                    gradientConfig.StoneColor.B * stone);
+
+                lut[y] = 0xFF000000 | ((uint)r << 16) | ((uint)g << 8) | b;
+            }
+            return lut;
+        }
+
+        public (uint[], uint[]) PrecomputeColors()
+        {
+            // Precompute sky gradient LUT
+            var skyLut = new uint[currentHeight];
+            double invWidth = 1.0 / currentWidth;
+            for (int y = 0; y < currentHeight; y++)
+            {
+                double factor = Math.Pow(1 - y * invWidth, 0.8);
+                skyLut[y] = 0xFF000000 | (uint)(
+                    (byte)(SkyColor.R * factor) << 16 |
+                    (byte)(SkyColor.G * factor) << 8 |
+                    (byte)(SkyColor.B * factor));
+            }
+
+            // Precompute water gradient LUT
+            var waterLut = new uint[51]; // Depth 0-50
+            for (int d = 0; d <= 50; d++)
+            {
+                double ratio = d / 50.0;
+                //ratio = Math2.Clamp(ratio, 0, 1);
+                waterLut[d] = 0xFF000000 | (uint)(
+                        (byte)(WaterColor.R + (WaterDeepColor.R - WaterColor.R) * ratio) << 16 |
+                        (byte)(WaterColor.G + (WaterDeepColor.G - WaterColor.G) * ratio) << 8 |
+                        (byte)(WaterColor.B + (WaterDeepColor.B - WaterColor.B) * ratio)
+                    );
+            }
+            return (skyLut,waterLut);
+        }
+
 
         public void ComputeNoiseValues()
         {
             double waterY = offsetY + (1000 - WaterLevel) * Scale;
             // this used to contain the current height but decided to just add scrolling - scaling and remove the current height from the calculation
-            waterLUT = new double[currentWidth];
+            waterDepthLUT = new double[currentWidth];
             Parallel.For(0, currentWidth, x =>
             {
                 double noiseValue = 0;
@@ -593,7 +805,7 @@ namespace VoidVenture
 
 
                 double waterNoise = noiseGenerator.Noise1D(x * 0.0005);
-                waterLUT[x] = waterY + waterNoise * 70 * Scale;
+                waterDepthLUT[x] = waterY + waterNoise * 70 * Scale;
 
                 // Scale terrain height with Scale and apply vertical offset
                 columnHeights[x] = normalizedValue * 1000 * Scale + offsetY;

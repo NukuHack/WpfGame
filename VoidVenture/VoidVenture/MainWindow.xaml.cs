@@ -178,14 +178,10 @@ namespace VoidVenture
 
             AddPlayerDynamically("images/player/player_space.png");
 
-            var timer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS
-            };
-            timer.Tick += (s,e) =>
-            {
-                Timer_Tick();
-            } ;
+            var timer = new DispatcherTimer // ~60 FPS
+            { Interval = TimeSpan.FromMilliseconds(16) };
+
+            timer.Tick += (s,e) => Timer_Tick();
             timer.Start();
         }
 
