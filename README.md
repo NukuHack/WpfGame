@@ -114,15 +114,15 @@ git clone https://github.com/NukuHack/WpfGame.git
 5. Open a pull request
 
 Plans for the future:  
-✅ Tutorial (just basic stuff for begginers)  
-✅ Save+Load progress (maybe encryption)  
-✅ Extra decor on terrain (ores/plants/biomes)  
-✅ Procedural generation optimization (mainly the coloring)  
-✅ Refined chunk system (working updates)  
-✅ Sound system implementation (background/general/ui)  
-✅ Performance optimizations  
-✅ UI/HUD optimizations (visual/user friendly)  
-✅ macOS/Linux compatibility layer (prop not)  
+ - Tutorial (just basic stuff for begginers)  
+ - Save+Load progress (maybe encryption)  
+ - Extra decor on terrain (ores/plants/biomes)  
+ - Procedural generation optimization (mainly the coloring)  
+ - Refined chunk system (working updates)  
+ - Sound system implementation (background/general/ui)  
+ - Performance optimizations  
+ - UI/HUD optimizations (visual/user friendly)  
+ - macOS/Linux compatibility layer (prop not)  
 
 ---
 
