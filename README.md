@@ -44,11 +44,14 @@ Some basic C#, made for some testing and to have fun developing it.
 
 - **Modular Architecture**  
   Clean separation of concerns with:
-  - `Player` physics/movement class
-  - `MathUtils` helper math module
-  - `Palette` color management system
-  - `Saves` - planned saves
-  - Some extra TMX map loading support
+  - `Player` physics/movement class 
+  - `Math2` helper math module - only to implement `Math.Clamp`
+  - `Color2` helper color module - only to implement `Color.Lerp`
+  - `Palette` color management system 
+  - `Saves` - planned saves 
+  - `Settings` - planned settings 
+  - `TmxParser` and some extra TMX map loading support
+  - `PerlinNoise` and some helper for the seed based random map gen
 
 ---
 
