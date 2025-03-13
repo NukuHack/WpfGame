@@ -81,10 +81,12 @@ namespace VoidVenture
 
             CloseButton.Click += (_, __) => CloseButton_Click();
             MenuButton.Click += (_, __) => MenuButton_Click();
-            SaveButton.Click += (_, __) => SaveButton_Click();
-
+            generalMenuButton.Click += (_, __) => generalMenuButton_Click();
+            settingsMenuButton.Click += (_, __) => settingsMenuButton_Click();
+            saveMenuButton.Click += (_, __) => saveMenuButton_Click();
             closeOverlay.Click += (_, __) => CloseOverlay_Click();
             loadButton.Click += (_, __) => LoadButton_Click();
+            saveButton.Click += (_, __) => saveButton_Click();
             deleteButton.Click += (_, __) => DeleteButton_Click();
             resaveButton.Click += (_, __) => ResaveButton_Click();
             loadExternalSave.Click += (_, __) => LoadExternalSave_Click();
@@ -124,9 +126,6 @@ namespace VoidVenture
             currentWidth = (int)ActualWidth;
             currentHeight = (int)ActualHeight;
 
-            // Initialize UI
-            SaveOverlay.Visibility = Visibility.Hidden;
-
             ResetUI();
         }
 
@@ -148,7 +147,9 @@ namespace VoidVenture
             //SaveOverlay.Width = ActualWidth;
             //SaveOverlay.Height = ActualHeight;
 
-            CenterOnCanvas(SaveMenu);
+            CenterOnCanvas(MenuGeneral);
+            CenterOnCanvas(MenuSettings);
+            CenterOnCanvas(MenuSave);
         }
 
         public void CenterOnCanvas(Grid grid)
@@ -205,6 +206,8 @@ namespace VoidVenture
 
         public void MainKeyPressHandler(Key e)
         {
+            if (isGamePaused) return;
+
             Direction direction = Direction.None;
 
             switch (e)
@@ -229,7 +232,7 @@ namespace VoidVenture
 
                 case Key.Space: Hover(true); break;
 
-                case Key.Escape: TryMenuSwitch(); break;
+                case Key.Escape: TryMenuSwitch(null); break;
             }
 
 
@@ -245,13 +248,9 @@ namespace VoidVenture
                 else if (DOUseNoiseTerrain)
                 {
                     if (DODebug)
-                    {
                         MoveTerrain(direction);
-                    }
                     else
-                    {
                         ShowMessage("First you have to enable debug mode for that (F)");
-                    }
                 }
             }
         }

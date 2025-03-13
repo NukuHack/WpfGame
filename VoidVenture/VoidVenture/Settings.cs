@@ -27,22 +27,24 @@ using System.Windows.Media.Media3D;
 
 using Microsoft.Win32.SafeHandles;
 using Microsoft.Win32;
+using System.Windows.Controls.Primitives;
+using System.Numerics;
 
 
 namespace VoidVenture
 {
     public class GameSave
     {
-        public bool Saved { get; set; }
-        public string Name { get; set; }
-        public int Coins { get; set; }
+        public bool? Saved { get; set; }
+        public string? Name { get; set; }
+        public int? Coins { get; set; }
     }
     public class Setting
     {
-        public string Name { get; set; }
-        public string Desc { get; set; }
-        public bool Default { get; set; }
-        public bool Value { get; set; }
+        public string? Name { get; set; }
+        public string? Desc { get; set; }
+        public bool? Default { get; set; }
+        public bool? Value { get; set; }
     }
 
     public partial class MainWindow : System.Windows.Window
@@ -72,40 +74,69 @@ namespace VoidVenture
         );
 
 
-        private void SaveButton_Click()
+        private void generalMenuButton_Click()
         {
-            SaveData();
+            MenuOpen("default");
+        }
+        private void settingsMenuButton_Click()
+        {
+            MenuOpen("settings");
+        }
+        private void saveMenuButton_Click()
+        {
+            MenuOpen("save");
         }
 
         private void MenuButton_Click()
         {
-            MenuOpen();
+            MenuOpen(null);
         }
 
-        public void TryMenuSwitch()
+        public void TryMenuSwitch(string? place)
         {
             if (!isMenuOpened)
-                MenuOpen();
+            {
+                MenuOpen(place);
+            }
             else
+            {
                 MenuClose();
+            }
         }
-        public void MenuOpen()
+        public void MenuOpen(string? place)
         {
             PauseGame();
-            isMenuOpened = true;
             try
             {
-                var saveFiles = GetSaveFiles();
-                if (saveFiles.Length == 0)
+                MenuOverlay.Visibility = Visibility.Visible;
+                isMenuOpened = true; ChangeHudVisibility(isMenuOpened);
+                if (place == null||place == "default")
                 {
-                    ShowMessage("No save files found in the save directory.");
-                    ResumeGame();
-                    return;
+                    MenuSave.Visibility = Visibility.Collapsed;
+                    MenuSettings.Visibility = Visibility.Collapsed;
+                    MenuGeneral.Visibility = Visibility.Visible;
+
+
+                }
+                else if (place == "settings")
+                {
+                    MenuSave.Visibility = Visibility.Collapsed;
+                    MenuSettings.Visibility = Visibility.Visible;
+                    MenuGeneral.Visibility = Visibility.Collapsed;
+
+
+                }
+                else if (place == "save")
+                {
+                    MenuSave.Visibility = Visibility.Visible;
+                    MenuSettings.Visibility = Visibility.Collapsed;
+                    MenuGeneral.Visibility = Visibility.Collapsed;
+
+                    var saveFiles = GetSaveFiles();
+                    saveFileSelector.ItemsSource = saveFiles;
+                    saveFileSelector.SelectedIndex = saveFiles.Length-1;
                 }
 
-                saveFileSelector.ItemsSource = saveFiles;
-                saveFileSelector.SelectedIndex = 0;
-                SaveOverlay.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
@@ -114,14 +145,33 @@ namespace VoidVenture
         }
         public void MenuClose()
         {
-            isMenuOpened = false;
-            SaveOverlay.Visibility = Visibility.Collapsed; // Close the overlay
+            isMenuOpened = false; ChangeHudVisibility(isMenuOpened);
+            MenuOverlay.Visibility = Visibility.Collapsed; // Close the overlay
             ResumeGame();
+        }
+
+        private void ChangeHudVisibility(bool value)
+        {
+            if (!value)
+            {
+                CloseButton.Visibility = Visibility.Visible;
+                MenuButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                CloseButton.Visibility = Visibility.Collapsed;
+                MenuButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+
+        private void saveButton_Click()
+        {
+            SaveData();
         }
 
         public void SaveData()
         {
-            PauseGame();
             try
             {
                 CheckSavePath();
@@ -134,21 +184,12 @@ namespace VoidVenture
             }
         }
 
-        private void GenPlayerData()
-        {
-            gameData = new GameSave
-            {
-                Saved = true,
-                Coins = 10,
-                Name = "Peter",
-
-            };
-        }
 
         private void CheckSavePath()
         {
+            // this was when i wanted to implment the manual saving ... not anymore
             if (string.IsNullOrEmpty(saveFilePath))
-                saveFilePath = Path.Combine(saveDirectory, "save1.txt");
+                saveFilePath = Path.Combine(saveDirectory, "Save_001.txt");
 
             if (!Path.HasExtension(saveFilePath))
                 saveFilePath += ".txt";
@@ -157,7 +198,7 @@ namespace VoidVenture
                 saveFilePath = Path.ChangeExtension(saveFilePath, ".txt");
         }
 
-        private string[] GetSaveFiles()
+        private string?[] GetSaveFiles()
         {
             if (!Directory.Exists(saveDirectory))
                 return Array.Empty<string>();
@@ -173,7 +214,8 @@ namespace VoidVenture
 
             try
             {
-                var selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+                var selectedName = saveFileSelector.SelectedItem.ToString();
+                var selectedFile = Path.Combine(saveDirectory, selectedName ?? "Save_001.txt");
                 var loadedGameData = LoadGame(selectedFile);
 
                 if (loadedGameData != null)
@@ -204,7 +246,8 @@ namespace VoidVenture
 
             try
             {
-                string selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+                var selectedName = saveFileSelector.SelectedItem.ToString();
+                var selectedFile = Path.Combine(saveDirectory, selectedName == null ? "Save_001.txt" : selectedName);
                 GameSave loadedGameData = LoadGame(selectedFile);
 
                 if (loadedGameData != null)
@@ -245,7 +288,8 @@ namespace VoidVenture
                 return;
             }
 
-            var selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+            var selectedName = saveFileSelector.SelectedItem.ToString();
+            var selectedFile = Path.Combine(saveDirectory, selectedName == null ? "Save_001.txt" : selectedName);
 
             if (MessageBox.Show("Are you sure you want to delete this save file?", "Confirm Delete", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
@@ -263,7 +307,8 @@ namespace VoidVenture
                 return;
             }
 
-            var selectedFile = Path.Combine(saveDirectory, saveFileSelector.SelectedItem.ToString());
+            var selectedName = saveFileSelector.SelectedItem.ToString();
+            var selectedFile = Path.Combine(saveDirectory, selectedName == null ? "Save_001.txt" : selectedName);
 
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
@@ -337,7 +382,6 @@ namespace VoidVenture
         {
             if (gameData == null)
             {
-                GenPlayerData();
                 ShowMessage("No game data to save.");
                 ResumeGame();
                 return;

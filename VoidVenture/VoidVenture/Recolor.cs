@@ -87,19 +87,19 @@ namespace VoidVenture
 
     public class LastColored
     {
-        public string imgSource;
-        public Palette _palette;
-        public Palette _randomizedPlette;
-        public WriteableBitmap _originalBitmap;
-        public WriteableBitmap _indexedBitmap;
-        public WriteableBitmap _recoloredBitmap;
+        public string? imgSource;
+        public Palette? _palette;
+        public Palette? _randomizedPlette;
+        public WriteableBitmap? _originalBitmap;
+        public WriteableBitmap? _indexedBitmap;
+        public WriteableBitmap? _recoloredBitmap;
     }
 
     public partial class MainWindow : System.Windows.Window
     {
         public LastColored tocolor = new LastColored();
 
-        public WriteableBitmap RecolorImage(string imgSourceRaw)
+        public WriteableBitmap? RecolorImage(string imgSourceRaw)
         {
             try
             {

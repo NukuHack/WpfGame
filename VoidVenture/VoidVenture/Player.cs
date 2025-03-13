@@ -72,8 +72,8 @@ namespace VoidVenture
         }
 
         public void Update(
-            double gravity, List<Rect> collidableTiles = null,
-            double[] heightMap = null, bool doCollCheck = true)
+            double gravity, List<Rect>? collidableTiles,
+            double[]? heightMap, bool doCollCheck = true)
         {
             ApplyGravity(gravity);
             Move();
@@ -93,15 +93,13 @@ namespace VoidVenture
 
         private void Move()
         {
-            // Horizontal movement
-            X += Velocity.X;
-            // Vertical movement
-            Y += Velocity.Y;
+            X += Velocity.X; // Horizontal movement
+            Y += Velocity.Y; // Vertical movement
+
+            ClampPosition();
 
             if (_window.DOUseNoiseTerrain)
                 HandleEdgeMovement();
-            else
-                ClampPosition();
 
             // Apply friction after collision resolution
             Velocity = new Vector(Velocity.X * friction, Velocity.Y * friction);
@@ -143,7 +141,7 @@ namespace VoidVenture
             Y = Math2.Clamp(Y, 0, _window.currentHeight - Height);
         }
 
-        private void HandleCollisions(List<Rect> collidableTiles = null, double[] heightMap = null)
+        private void HandleCollisions(List<Rect>? collidableTiles, double[]? heightMap)
         {
             if (!_window.DOUseNoiseTerrain)
             {

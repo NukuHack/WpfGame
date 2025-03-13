@@ -15,6 +15,7 @@
 
 
     <Window.Resources>
+        
         <!-- Define reusable button style -->
         <Style x:Key="ButtonStyle" TargetType="Button">
             <Setter Property="BorderBrush" Value="Black"/>
@@ -31,15 +32,22 @@
                 </Setter.Value>
             </Setter>
         </Style>
-    </Window.Resources>
+        
+        
+        
+        </Window.Resources>
 
-    <Grid x:Name="MainGrid">
+
+
+        <Grid x:Name="MainGrid">
         <!-- Background Canvas -->
+            
         <Canvas x:Name="BackgroundCanvas">
         </Canvas>
 
         <!-- Map Canvas -->
         <Canvas x:Name="MapCanvas" Background="Transparent">
+            
             <Image x:Name="terrainImage" Stretch="None">
                 <Image.RenderTransform>
                     <ScaleTransform x:Name="terrainScaleTransform" 
@@ -74,63 +82,143 @@
 
 
 
-        <!-- Overlay Canvas -->
-        <Canvas x:Name="SaveOverlay" Background="#AA000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-            <Grid x:Name="SaveMenu" HorizontalAlignment="Left" VerticalAlignment="Top" Width="400" Height="300" Background="#FF2D7B39">
-                <!-- Title -->
-                <TextBlock Text="Save File Manager" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" Margin="0,10,0,265" />
+        <Grid x:Name="MenuOverlay" Visibility="Collapsed">
+            <!-- Sidebar Menu -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-                <!-- ComboBox for selecting save files -->
-                <ComboBox x:Name="saveFileSelector" 
-                          HorizontalAlignment="Center" 
+            <!-- Sidebar Content -->
+            <StackPanel Grid.Column="0" Background="#FF333333">
+                <Button x:Name="generalMenuButton" Content="General" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Foreground="White" FontSize="16" Margin="10" />
+                <Button x:Name="settingsMenuButton" Content="Settings" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Foreground="White" FontSize="16" Margin="10" />
+                <Button x:Name="saveMenuButton" Content="Save Manager" Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Foreground="White" FontSize="16" Margin="10" />
+            </StackPanel>
+
+
+
+
+            <!-- Content -->
+            <Grid Grid.Column="1" Background="#FFEEEEEE" x:Name="MenuGeneral" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <TextBlock Text="General" FontSize="20" FontWeight="Bold" Margin="20" />
+
+                <!-- Settings Content -->
+                <Grid Grid.Row="1" Margin="20">
+
+
+
+                </Grid>
+            </Grid>
+
+
+
+
+
+            <!-- Content -->
+            <Grid Grid.Column="1" Background="#FFEEEEEE" x:Name="MenuSettings" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <TextBlock Text="Settings" FontSize="20" FontWeight="Bold" Margin="20" />
+
+                <!-- Settings Content -->
+                <Grid Grid.Row="1" Margin="20">
+
+
+
+                </Grid>
+            </Grid>
+
+
+
+            <!-- Content -->
+            <Grid Grid.Column="1" Background="#FFEEEEEE" x:Name="MenuSave" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <TextBlock Text="Save Manager" FontSize="20" FontWeight="Bold" Margin="20" />
+
+                <!-- Save Content -->
+                <Grid Grid.Row="1" Margin="20">
+                    <!-- ComboBox for selecting save files -->
+                    <ComboBox x:Name="saveFileSelector" 
+                          HorizontalAlignment="Left" 
                           VerticalAlignment="Top" 
                           Width="200" 
-                          Margin="0,40,0,0" />
+                          Margin="0,10,0,0" 
+                          Background="#FFF5F5F5" 
+                          Foreground="#FF333333" />
 
-                <!-- TextBlock to display save details -->
-                <TextBlock x:Name="saveDetails" 
-                           HorizontalAlignment="Center" 
-                           VerticalAlignment="Top" 
-                           Margin="0,137,0,0" 
+                    <!-- TextBlock to display save details -->
+                    <TextBlock x:Name="saveDetails" 
                            Text="Select a save file to view details." 
-                           Width="200" 
-                           TextWrapping="Wrap" Height="97" />
+                           TextWrapping="Wrap" 
+                           HorizontalAlignment="Left" 
+                           VerticalAlignment="Top" 
+                           Margin="0,50,0,0" 
+                           Width="300" 
+                           Height="150" 
+                           Background="#FFF5F5F5" 
+                           Padding="10" 
+                           Foreground="#FF333333" />
 
-                <!-- Buttons for actions -->
-                <Button x:Name="loadButton" Content="Load" 
+                    <!-- Buttons for actions -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,20">
+                        <Button x:Name="loadButton" Content="Load"
+                                BorderThickness="1" 
+                                BorderBrush="#FF1A5025"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Button x:Name="deleteButton" Content="Delete"
+                                BorderThickness="1" 
+                                BorderBrush="#FF1A5025"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Button x:Name="saveButton" Content="Save"
+                                BorderThickness="1" 
+                                BorderBrush="#FF1A5025"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Load External Save Button -->
+                    <Button x:Name="resaveButton" 
+                        Content="Save to external folder" 
                         HorizontalAlignment="Left" 
                         VerticalAlignment="Bottom" 
-                        Margin="50,0,0,192" 
-                        Width="75" />
-                <Button x:Name="deleteButton" Content="Delete" 
-                        HorizontalAlignment="Center" 
-                        VerticalAlignment="Top" 
-                        Margin="0,88,0,0" 
-                        Width="76" />
-                <Button x:Name="resaveButton" Content="Resave" 
-                        HorizontalAlignment="Right" 
-                        VerticalAlignment="Bottom" 
-                        Margin="0,0,50,192" 
-                        Width="75" />
+                        Width="150" 
+                        FontSize="12" />
 
-                <Button x:Name="loadExternalSave" Content="Load External Save" Margin="-30,0,0,30" RenderTransformOrigin="0.5,0.5" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="90" FontSize="10" >
-                    <Button.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform/>
-                            <SkewTransform/>
-                            <RotateTransform Angle="90"/>
-                            <TranslateTransform/>
-                        </TransformGroup>
-                    </Button.RenderTransform>
-                </Button>
-
-                <Button x:Name="closeOverlay" Content="Close" 
-                        HorizontalAlignment="Center" 
+                    <!-- Load External Save Button -->
+                    <Button x:Name="loadExternalSave" 
+                        Content="Load External Save" 
+                        HorizontalAlignment="Left" 
                         VerticalAlignment="Bottom" 
-                        Margin="0,0,0,20" 
-                        Width="75" />
+                        Width="150" 
+                        FontSize="12" />
+
+                </Grid>
             </Grid>
-        </Canvas>
+
+            <!-- Close Button -->
+            <Button x:Name="closeOverlay" 
+                        Content="Close" 
+                        HorizontalAlignment="Center" 
+                        VerticalAlignment="Bottom" 
+                        Margin="20,20,20,20" 
+                        Width="100" />
+
+        </Grid>
 
         <!-- Close Button -->
         <Button x:Name="CloseButton" 
@@ -144,11 +232,6 @@
                 Style="{StaticResource ButtonStyle}" 
                 Margin="1,0,0,1" HorizontalAlignment="Left" Width="100" Height="45" VerticalAlignment="Top" Background="#FF0000FF"/>
 
-        <!-- Save Button -->
-        <Button x:Name="SaveButton" 
-                Content="Save" 
-                Style="{StaticResource ButtonStyle}" 
-                Margin="101,0,0,0" HorizontalAlignment="Left" Width="100" Height="45" VerticalAlignment="Top" Background="#FF00FF47"/>
 
     </Grid>
     

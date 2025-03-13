@@ -39,15 +39,15 @@ namespace VoidVenture
         public static GameMap Parse(string filePath)
         {
             XDocument doc = XDocument.Load(filePath);
-            XElement mapElement = doc.Root;
+            XElement? mapElement = doc.Root;
 
-            var tilesetElement = mapElement.Element("tileset");
-            string tilesetSource = tilesetElement?.Attribute("source")?.Value;
+            var tilesetElement = mapElement?.Element("tileset");
+            string? tilesetSource = tilesetElement?.Attribute("source")?.Value;
 
             var mapData = new GameMap
             {
-                MapWidth = int.Parse(mapElement.Attribute("width").Value),
-                MapHeight = int.Parse(mapElement.Attribute("height").Value),
+                MapWidth = int.Parse(mapElement?.Attribute("width")?.Value),
+                MapHeight = int.Parse(mapElement?.Attribute("height")?.Value),
                 BackgroundImagePath = mapElement.Attribute("background")?.Value ?? "",
                 Layers = new List<List<int>>()
             };
@@ -69,7 +69,7 @@ namespace VoidVenture
             return mapData;
         }
 
-        private static (BitmapImage, int, int) ParseTileset(string tilesetPath)
+        private static (BitmapImage?, int, int) ParseTileset(string tilesetPath)
         {
             if (!File.Exists(tilesetPath))
             {
@@ -78,12 +78,12 @@ namespace VoidVenture
             }
 
             XDocument doc = XDocument.Load(tilesetPath);
-            XElement tilesetElement = doc.Root;
+            XElement? tilesetElement = doc.Root;
             int tileWidth = int.Parse(tilesetElement.Attribute("tilewidth").Value);
             int tileHeight = int.Parse(tilesetElement.Attribute("tileheight").Value);
 
             var imageElement = tilesetElement.Element("image");
-            string imagePath = imageElement?.Attribute("source")?.Value;
+            string? imagePath = imageElement?.Attribute("source")?.Value;
 
             if (string.IsNullOrEmpty(imagePath)) return (null, 0, 0);
 
@@ -104,9 +104,9 @@ namespace VoidVenture
         public int MapHeight { get; set; }
         public int TileWidth { get; set; }
         public int TileHeight { get; set; }
-        public BitmapImage TileSetImage { get; set; }
+        public BitmapImage? TileSetImage { get; set; }
         public List<List<int>> Layers { get; set; } = new List<List<int>>();
-        public string BackgroundImagePath { get; set; }
+        public string? BackgroundImagePath { get; set; }
     }
 
 
@@ -141,7 +141,7 @@ namespace VoidVenture
             }
         }
 
-        public void DisplayBackgroundFromTile(string imagePath)
+        public void DisplayBackgroundFromTile(string? imagePath)
         {
             if (string.IsNullOrEmpty(imagePath)) return;
             try
