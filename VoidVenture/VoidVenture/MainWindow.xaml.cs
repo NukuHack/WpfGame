@@ -81,10 +81,13 @@ namespace VoidVenture
 
             CloseButton.Click += (_, __) => CloseButton_Click();
             MenuButton.Click += (_, __) => MenuButton_Click();
+
             generalMenuButton.Click += (_, __) => generalMenuButton_Click();
             settingsMenuButton.Click += (_, __) => settingsMenuButton_Click();
             saveMenuButton.Click += (_, __) => saveMenuButton_Click();
+
             closeOverlay.Click += (_, __) => CloseOverlay_Click();
+
             loadButton.Click += (_, __) => LoadButton_Click();
             saveButton.Click += (_, __) => saveButton_Click();
             deleteButton.Click += (_, __) => DeleteButton_Click();
@@ -152,7 +155,7 @@ namespace VoidVenture
             CenterOnCanvas(MenuSave);
         }
 
-        public void CenterOnCanvas(Grid grid)
+        public void CenterOnCanvas(Border grid)
         {
             Canvas.SetTop(grid, (ActualHeight - grid.Height) / 2);
             Canvas.SetLeft(grid, (ActualWidth - grid.Width) / 2);
@@ -206,8 +209,6 @@ namespace VoidVenture
 
         public void MainKeyPressHandler(Key e)
         {
-            if (isGamePaused) return;
-
             Direction direction = Direction.None;
 
             switch (e)
@@ -235,6 +236,7 @@ namespace VoidVenture
                 case Key.Escape: TryMenuSwitch(null); break;
             }
 
+            if (isGamePaused) return;
 
             if (direction != Direction.None)
             {
@@ -306,7 +308,7 @@ namespace VoidVenture
         public void CloseAsk()
         {
             MessageBoxResult result = MessageBox.Show(
-                "Do you want to quit?\nYou will lose all your progress.",
+                "Do you want to quit?\nYou will lose all your unsaved progress.",
                 "Close",
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Stop
