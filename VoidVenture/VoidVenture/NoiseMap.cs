@@ -5,6 +5,7 @@ using System.Text;
 using System.Linq;
 //using System.Drawing;
 using System.Xml.Linq;
+using System.Text.Json;
 using System.Reflection;
 using System.Diagnostics;
 using System.Reflection.Emit;
@@ -92,19 +93,19 @@ namespace VoidVenture
         {
             // Reset seed and position
 
-            if (DORandomizeTerrainMulti)
+            if (DO.RandomizeTerrainMulti)
             {
                 WorldMulti = rnd.Next(15, 50) * 0.1;
             }
 
-            if (DORandomizeTerrainHeights)
+            if (DO.RandomizeTerrainHeights)
             {
                 WaterLevel = rnd.Next(200, 300); // Random water level
                 GrassDepth = rnd.Next(5, 20);
                 DirtDepth = rnd.Next(5, 50) + GrassDepth;
             }
 
-            if (DORandomizeTerrainColors)
+            if (DO.RandomizeTerrainColors)
             {
                 var colors = TerrainColorGenerator.GenerateColors(7);
                 WaterColor = colors[0];
@@ -176,7 +177,7 @@ namespace VoidVenture
 
             var (skyLut, waterLut) = PrecomputeColors();
 
-            if (DOUseChunkGen)
+            if (DO.UseChunkGen)
             {
                 RenderTerrainInChunks(gradientConfig, skyLut, waterLut);
             }
@@ -497,7 +498,7 @@ namespace VoidVenture
                 waterDepthLUT[x] = waterY + waterNoise * 70 * Scale;
                 columnHeights[x] = normalizedValue * defaultTerrainOffset * Scale + offsetY;
                 // this used to contain the current height but decided to just add scrolling - scaling and remove the current height from the calculation
-                if (DODebug)
+                if (DO.Debug)
                 {
                     noiseDebug[x, 0] = noiseValue;
                     noiseDebug[x, 1] = normalizedValue;

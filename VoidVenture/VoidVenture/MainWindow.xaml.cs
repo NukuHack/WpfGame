@@ -5,6 +5,7 @@ using System.Text;
 using System.Linq;
 //using System.Drawing;
 using System.Xml.Linq;
+using System.Text.Json;
 using System.Reflection;
 using System.Diagnostics;
 using System.Reflection.Emit;
@@ -13,6 +14,7 @@ using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Diagnostics.Eventing.Reader;
+
 
 using System.Windows;
 using System.Windows.Data;
@@ -48,6 +50,8 @@ namespace VoidVenture
 
         public MainWindow()
         {
+            BeforeEverything();
+
             InitializeComponent();
 
             mainwindow = this;
@@ -61,11 +65,12 @@ namespace VoidVenture
         }
 
 
+
         public void Initialize()
         {
             InitializeUI();
 
-            if (!DOUseNoiseTerrain)
+            if (!DO.UseNoiseTerrain)
             {
                 LoadTileMap("maps/default.tmx");
             }
@@ -109,7 +114,7 @@ namespace VoidVenture
             currentWidth = (int)e.NewSize.Width;
             currentHeight = (int)e.NewSize.Height;
 
-            if (!DOUseNoiseTerrain)
+            if (!DO.UseNoiseTerrain)
             {
                 RedrawTileMap();
             }
@@ -178,7 +183,7 @@ namespace VoidVenture
 
         public async void StartGameLoop()
         {
-            if (DOUseNoiseTerrain)
+            if (DO.UseNoiseTerrain)
                 // Wait for map initialization
                 while (columnHeights == null)
                 {
@@ -247,9 +252,9 @@ namespace VoidVenture
                     if (player != null)
                         player.SetMovementDirection(direction);
                 }
-                else if (DOUseNoiseTerrain)
+                else if (DO.UseNoiseTerrain)
                 {
-                    if (DODebug)
+                    if (DO.Debug)
                         MoveTerrain(direction);
                     else
                         ShowMessage("First you have to enable debug mode for that (F)");

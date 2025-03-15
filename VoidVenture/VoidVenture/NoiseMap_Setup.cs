@@ -5,6 +5,7 @@ using System.Text;
 using System.Linq;
 //using System.Drawing;
 using System.Xml.Linq;
+using System.Text.Json;
 using System.Reflection;
 using System.Diagnostics;
 using System.Reflection.Emit;
@@ -232,17 +233,21 @@ namespace VoidVenture
         {
 
             this.GameCanvas.MouseRightButtonDown += (s, e) => {
+                if (isGamePaused) return;
                 _moveStartPoint = e.GetPosition(terrainImage);
             };
             this.GameCanvas.MouseRightButtonUp += (s, e) => {
                 _moveStartPoint = null;
             };
             this.GameCanvas.MouseMove += (s, e) => {
+                if (isGamePaused) return;
+
                 if (_moveStartPoint.HasValue)
                 {
+                    System.Windows.Point currentPos = e.GetPosition(terrainImage);
+
                     infoText.Visibility = Visibility.Collapsed;
                     // Calculate the delta between the current mouse position and the starting point
-                    System.Windows.Point currentPos = e.GetPosition(terrainImage);
                     Vector delta = _moveStartPoint.Value - currentPos;
 
                     // Update the terrain's offsets
@@ -268,6 +273,8 @@ namespace VoidVenture
         public void SetupTerrainScalingWithScrolling()
         {
             this.GameCanvas.MouseWheel += (s, e) => {
+                if (isGamePaused)return;
+
                 infoText.Visibility = Visibility.Collapsed;
                 double oldScale = Scale;
                 double ZoomFactor = 1.1;
@@ -334,11 +341,8 @@ namespace VoidVenture
             };
 
             this.GameCanvas.MouseMove += (s, e) => {
-                if (e.LeftButton == MouseButtonState.Pressed)
-                {
-                    inMouseDown = true;
-                    UpdateInfoDisplay(e);
-                }
+                if (isGamePaused) return;
+                if (inMouseDown) UpdateInfoDisplay(e);
             };
 
             this.GameCanvas.MouseLeftButtonUp += (s, e) => {
@@ -349,7 +353,12 @@ namespace VoidVenture
                 }));
             };
 
-            this.GameCanvas.MouseLeftButtonDown += (s, e) => UpdateInfoDisplay(e);
+            this.GameCanvas.MouseLeftButtonDown += (s, e) =>
+            {
+                if (isGamePaused) return;
+                inMouseDown = true;
+                UpdateInfoDisplay(e);
+            };
         }
         public void UpdateInfoDisplay(MouseEventArgs e)
         {
@@ -393,7 +402,7 @@ namespace VoidVenture
             infoText.Visibility = Visibility.Visible;
 
             // Debug output
-            if (DODebug)
+            if (DO.Debug)
             {
                 label1.Content = $"click: {x:F1}, {y:F1}";
                 label2.Content = $"terrain: {terrainHeight:F1}, water: {waterLevel:F1}";
@@ -406,6 +415,7 @@ namespace VoidVenture
 
         public void MoveTerrain(Direction direction)
         {
+            if (isGamePaused) return;
             switch (direction)
             {
                 case Direction.Up: offsetY += 100; break;
@@ -419,6 +429,7 @@ namespace VoidVenture
 
         public void MoveOffset(Direction direction, double value)
         {
+            if (isGamePaused) return;
             switch (direction)
             {
                 case Direction.Up: offsetY += value; break;
@@ -431,9 +442,9 @@ namespace VoidVenture
 
         public void DoDebug()
         {
-            DODebug = !DODebug;
-            ShowMessage($"Now the debug changed to :{DODebug}");
-            if (DODebug)
+            DO.Debug = !DO.Debug;
+            ShowMessage($"Now the debug changed to :{DO.Debug}");
+            if (DO.Debug)
             {
                 ShowMessage(
                     $"Some important stuff:\n" +
@@ -452,7 +463,7 @@ namespace VoidVenture
         }
         public void ShowDebugInfo()
         {
-            if (DODebug)
+            if (DO.Debug)
             {
                 if (noiseDebug[0, 0] == 0)
                 {

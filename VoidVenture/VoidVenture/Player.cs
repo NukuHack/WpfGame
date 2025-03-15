@@ -5,6 +5,7 @@ using System.Text;
 using System.Linq;
 //using System.Drawing;
 using System.Xml.Linq;
+using System.Text.Json;
 using System.Reflection;
 using System.Diagnostics;
 using System.Reflection.Emit;
@@ -13,6 +14,7 @@ using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Diagnostics.Eventing.Reader;
+
 
 using System.Windows;
 using System.Windows.Data;
@@ -98,7 +100,7 @@ namespace VoidVenture
 
             ClampPosition();
 
-            if (_window.DOUseNoiseTerrain)
+            if (_window.DO.UseNoiseTerrain)
                 HandleEdgeMovement();
 
             // Apply friction after collision resolution
@@ -143,7 +145,7 @@ namespace VoidVenture
 
         private void HandleCollisions(List<Rect>? collidableTiles, double[]? heightMap)
         {
-            if (!_window.DOUseNoiseTerrain)
+            if (!_window.DO.UseNoiseTerrain)
             {
                 if (collidableTiles == null || collidableTiles.Count == 0)
                 {
@@ -270,12 +272,12 @@ namespace VoidVenture
             // Apply scaling based on conditions
             if (Rotation >= 180)
             {
-                if (_window.DOUseNoiseTerrain)
+                if (_window.DO.UseNoiseTerrain)
                     matrix.ScaleAt(-BaseScaleFactor * _window.Scale, BaseScaleFactor * _window.Scale, Width, 0);
                 else
                     matrix.ScaleAt(-1, 1, Width, 0);
             }
-            else if (_window.DOUseNoiseTerrain)
+            else if (_window.DO.UseNoiseTerrain)
                 matrix.ScaleAt(BaseScaleFactor * _window.Scale, BaseScaleFactor * _window.Scale, 0, 0);
 
             // Apply position translation
@@ -359,7 +361,7 @@ namespace VoidVenture
             try
             {
                 BitmapImage bitmapImage = new BitmapImage();
-                if (DOSelectPlayerManually)
+                if (DO.SelectPlayerManually)
                 {
 
                     var openFileDialog = new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*" };
@@ -401,7 +403,7 @@ namespace VoidVenture
 
         public void PlayerImageInitialize(string playerImageUri, bool doReplace = false)
         {
-            if (!DORecolorPlayer)
+            if (!DO.RecolorPlayer)
             {
                 // Load the player image
                 BitmapImage playerImageSource = new BitmapImage();

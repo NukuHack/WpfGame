@@ -5,6 +5,7 @@ using System.Text;
 using System.Linq;
 //using System.Drawing;
 using System.Xml.Linq;
+using System.Text.Json;
 using System.Reflection;
 using System.Diagnostics;
 using System.Reflection.Emit;
@@ -13,6 +14,7 @@ using System.Windows.Interop;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Diagnostics.Eventing.Reader;
+
 
 using System.Windows;
 using System.Windows.Data;
@@ -150,7 +152,7 @@ namespace VoidVenture
                 {
                     Stretch = Stretch.UniformToFill
                 };
-                if (DORecolorBackground)
+                if (DO.RecolorBackground)
                 {
                     var recoloredBitmap = RecolorImage(imagePath);
                     BackgroundCanvas.Background = new ImageBrush(recoloredBitmap)
