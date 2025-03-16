@@ -194,7 +194,7 @@ namespace VoidVenture
                     await Task.Delay(16); // Check every 16ms (60 / sec)
                 }
 
-            AddPlayerDynamically(VoidVenture.Properties.Resources.Playser_idle_1);
+            AddPlayerDynamically(VoidVenture.Properties.PlayerResource.Player_space);
 
             var timer = new DispatcherTimer // ~60 FPS
             { Interval = TimeSpan.FromMilliseconds(16) };

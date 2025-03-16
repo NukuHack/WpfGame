@@ -218,115 +218,109 @@ namespace VoidVenture
         }
 
 
+
         public WriteableBitmap LoadBitmap(byte[] imageData)
         {
-            BitmapSource bitmapSource;
-
-            if (imageData != null)
-            {
-                // Load image from byte array
-                var extension = GetImageExtension(imageData);
-
-                if (extension is ".ico" or ".cur")
-                {
-                    var decoder = new IconBitmapDecoder(
-                        new MemoryStream(imageData),
-                        BitmapCreateOptions.None,
-                        BitmapCacheOption.None);
-
-                    // Get the first frame (icons can have multiple sizes)
-                    bitmapSource = decoder.Frames[0];
-                }
-                else if (extension is ".png")
-                {
-                    var bitmapImage = new BitmapImage();
-                    bitmapImage.BeginInit();
-                    bitmapImage.StreamSource = new MemoryStream(imageData);
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the stream is fully loaded
-                    bitmapImage.EndInit();
-                    bitmapSource = bitmapImage;
-                }
-                else
-                {
-                    MessageBox.Show($"Image extension not supported: '{extension}'", "Image Recolor Error");
-                    throw new ArgumentException($"Image format not supported.");
-                }
-            }
-            else
-            {
+            if (imageData == null)
                 throw new ArgumentException("ImageData must be provided.");
-            }
 
-            // Process the loaded image
-            if (bitmapSource.Format == PixelFormats.Indexed8)
-                return Convert8BitToBGRA(bitmapSource);
-            else if (bitmapSource.Format == PixelFormats.Bgra32)
-                return new WriteableBitmap(bitmapSource);
-            else
-            {
-                MessageBox.Show($"Image format not supported: '{bitmapSource.Format}'", "Image Recolor Error");
-                throw new ArgumentException($"Image format not supported.");
-            }
+            return LoadBitmapCore(new MemoryStream(imageData), GetImageExtension(imageData));
         }
-
 
         public WriteableBitmap LoadBitmap(string filePath)
         {
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"The file '{filePath}' does not exist.");
 
+            var uri = new Uri(filePath, UriKind.RelativeOrAbsolute);
+            return LoadBitmapCore(uri, Path.GetExtension(filePath));
+        }
+
+        private WriteableBitmap LoadBitmapCore(object source, string extension)
+        {
             BitmapSource bitmapSource;
-            var uri_stuff = new Uri(filePath, UriKind.RelativeOrAbsolute);
 
-            var extension = Path.GetExtension(filePath);
+            try
+            {
+                if (source is Uri uri)
+                {
+                    if (extension is ".ico" or ".cur")
+                    {
+                        var decoder = new IconBitmapDecoder(
+                            uri,
+                            BitmapCreateOptions.None,
+                            BitmapCacheOption.None);
 
-            if (extension is ".ico" || extension is ".cur")
-            {
-                var decoder = new IconBitmapDecoder(
-                    uri_stuff,
-                    BitmapCreateOptions.None,
-                    BitmapCacheOption.None);
+                        // Get the first frame (icons can have multiple sizes)
+                        bitmapSource = decoder.Frames[0];
+                    }
+                    else if (extension is ".png")
+                    {
+                        var bitmapImage = new BitmapImage();
+                        bitmapImage.BeginInit();
+                        bitmapImage.UriSource = uri;
+                        bitmapImage.EndInit();
+                        bitmapSource = bitmapImage;
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Image extension not supported: '{extension}'", "Image Recolor Error");
+                        throw new ArgumentException($"Image format not supported.");
+                    }
+                }
+                else if (source is Stream stream)
+                {
+                    if (extension is ".ico" or ".cur")
+                    {
+                        var decoder = new IconBitmapDecoder(
+                            stream,
+                            BitmapCreateOptions.None,
+                            BitmapCacheOption.None);
 
-                // Get the first frame (icons can have multiple sizes)
-                bitmapSource = decoder.Frames[0];
-            }
-            /*
-            else if (extension == ".ani")
-            {
-                return LoadAniFrame(filePath);
-            }
-            */
-            else if (extension is ".png")
-            {
-                // Fallback to BitmapImage for other formats
-                var bitmapImage = new BitmapImage();
-                bitmapImage.BeginInit();
-                bitmapImage.UriSource = uri_stuff;
-                bitmapImage.EndInit();
-                bitmapSource = bitmapImage;
-            }
-            else
-            {
-                MessageBox.Show($"Image extension not supported: '{Path.GetExtension(filePath)}'", "Image Recolor Error");
-                throw new ArgumentException($"Image to load '{tocolor.imgSource}' is not formatted to my liking.");
-                // if you are here it means the img you want to load is not and old 8-bit image and not an usual 32-bit image
-                // now it should support .png and .ico and .cur
-                // in that case write your own palette extracting function, cu's I'm lazy and I don't have that kind of files
-            }
+                        // Get the first frame (icons can have multiple sizes)
+                        bitmapSource = decoder.Frames[0];
+                    }
+                    else if (extension is ".png")
+                    {
+                        var bitmapImage = new BitmapImage();
+                        bitmapImage.BeginInit();
+                        bitmapImage.StreamSource = stream;
+                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the stream is fully loaded
+                        bitmapImage.EndInit();
+                        bitmapSource = bitmapImage;
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Image extension not supported: '{extension}'", "Image Recolor Error");
+                        throw new ArgumentException($"Image format not supported.");
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException("Invalid source type.");
+                }
 
-            if (bitmapSource.Format == PixelFormats.Indexed8)
-                return Convert8BitToBGRA(bitmapSource);
-            else if (bitmapSource.Format == PixelFormats.Bgra32)
-                return new WriteableBitmap(bitmapSource);
-            else
+                // Process the loaded image
+                if (bitmapSource.Format == PixelFormats.Indexed8)
+                    return Convert8BitToBGRA(bitmapSource);
+                else if (bitmapSource.Format == PixelFormats.Bgra32)
+                    return new WriteableBitmap(bitmapSource);
+                else
+                {
+                    MessageBox.Show($"Image format not supported: '{bitmapSource.Format}'", "Image Recolor Error");
+                    throw new ArgumentException($"Image format not supported.");
+                }
+            }
+            catch (Exception ex)
             {
-                MessageBox.Show($"Image format not supported: '{bitmapSource.Format}'", "Image Recolor Error");
-                throw new ArgumentException($"Image to load '{tocolor.imgSource}' is not formatted to my liking.");
-                // if you are here it means the img you want to load is not and old 8-bit image and not an usual 32-bit image
-                // now it should support .png and .ico and .cur
-                // in that case write your own palette extracting function, cu's I'm lazy and I don't have that kind of files
+                MessageBox.Show($"Error loading image: {ex.Message}", "Image Recolor Error");
+                throw;
             }
         }
+
+
+
+
 
         public static WriteableBitmap Convert8BitToBGRA(BitmapSource indexedImage)
         {
@@ -451,136 +445,6 @@ namespace VoidVenture
             int maskSize = ((bitmap.PixelWidth + 31) / 32 * 4) * bitmap.PixelHeight;
             return headerSize + xorSize + maskSize;
         }
-        /*
-        private static WriteableBitmap LoadAniFrame(string filePath, int frameIndex = 0)
-        {
-            try
-            {
-                var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                var reader = new BinaryReader(stream);
-
-                // Read RIFF header
-                var riffHeader = reader.ReadBytes(12);
-                if (!Encoding.ASCII.GetString(riffHeader, 0, 4).Equals("RIFF") ||
-                    !Encoding.ASCII.GetString(riffHeader, 8, 4).Equals("ACON"))
-                    throw new NotSupportedException("Not a valid ANI file.");
-
-                // Find ANI header ('anih')
-                ANIHeader? anih = null;
-                while (stream.Position < stream.Length)
-                {
-                    var chunkHeader = reader.ReadBytes(8);
-                    var chunkSize = BitConverter.ToInt32(chunkHeader, 4);
-                    var chunkType = Encoding.ASCII.GetString(chunkHeader, 0, 4);
-
-                    if (chunkType == "anih" && chunkSize >= Marshal.SizeOf<ANIHeader>())
-                    {
-                        var anihBytes = reader.ReadBytes(Marshal.SizeOf<ANIHeader>());
-                        anih = ByteArrayToStructure<ANIHeader>(anihBytes);
-                        break;
-                    }
-                    else
-                    {
-                        stream.Position += chunkSize;
-                    }
-                }
-
-                if (anih == null)
-                    throw new InvalidDataException("ANI header not found.");
-
-                // Collect CURS chunks from 'fram' LISTs
-                var cursChunks = new List<byte[]>();
-                while (stream.Position < stream.Length)
-                {
-                    var chunkHeader = reader.ReadBytes(8);
-                    var chunkSize = BitConverter.ToInt32(chunkHeader, 4);
-                    var chunkType = Encoding.ASCII.GetString(chunkHeader, 0, 4);
-
-                    if (chunkType == "LIST")
-                    {
-                        var listType = Encoding.ASCII.GetString(reader.ReadBytes(4));
-                        if (listType == "fram")
-                        {
-                            var listEnd = stream.Position + chunkSize - 4; // 4 bytes for list type
-                            while (stream.Position < listEnd)
-                            {
-                                var subChunkHeader = reader.ReadBytes(8);
-                                var subChunkSize = BitConverter.ToInt32(subChunkHeader, 4);
-                                var subChunkType = Encoding.ASCII.GetString(subChunkHeader, 0, 4);
-
-                                if (subChunkType == "CURS")
-                                {
-                                    var cursData = reader.ReadBytes(subChunkSize);
-                                    cursChunks.Add(cursData);
-                                }
-                                else
-                                {
-                                    stream.Position += subChunkSize;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            stream.Position += chunkSize - 4; // Skip non-fram LISTs
-                        }
-                    }
-                    else
-                    {
-                        stream.Position += chunkSize;
-                    }
-                }
-
-                if (cursChunks.Count == 0)
-                    throw new InvalidDataException("No CURS chunks found.");
-
-                if (frameIndex >= cursChunks.Count)
-                    throw new ArgumentOutOfRangeException(nameof(frameIndex));
-
-                // Load the specified frame
-                var cursStream = new MemoryStream(cursChunks[frameIndex]);
-                var decoder = new IconBitmapDecoder(cursStream, BitmapCreateOptions.None, BitmapCacheOption.None);
-                cursStream.Close();
-                stream.Close();
-                reader.Close();
-                return new BitmapSource(decoder.Frames[0]);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to load ANI file: {ex.Message}", "ANI Load Error");
-                throw;
-            }
-        }
-
-        private static T ByteArrayToStructure<T>(byte[] bytes) where T : struct
-        {
-            var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-            try
-            {
-                return Marshal.PtrToStructure<T>(handle.AddrOfPinnedObject());
-            }
-            finally
-            {
-                handle.Free();
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 2)]
-        private struct ANIHeader
-        {
-            public uint cbSize;
-            public uint cFrames;
-            public uint cSteps;
-            public uint cx;
-            public uint cy;
-            public uint cBitCount;
-            public uint cPlanes;
-            public uint cFramesPerSecond;
-            public uint cTransparentColor;
-            public uint cFlags;
-        }
-        */
-
-
         public WriteableBitmap ConvertToIndexed(WriteableBitmap originalBitmap, Palette palette)
         {
             var width = originalBitmap.PixelWidth;
@@ -646,21 +510,10 @@ namespace VoidVenture
                         continue;
                     }
 
-                    var index = indexedPixels[offset + 2]; // Red channel holds index
-
-                    // Validate index against old palette size
-                    if (index >= oldPalette.Colors.Count)
-                    {
-                        // Fallback to first color if index is invalid
-                        var newColorFallback = newPalette.GetColor(0);
-                        recoloredPixels[offset + 0] = newColorFallback.B;
-                        recoloredPixels[offset + 1] = newColorFallback.G;
-                        recoloredPixels[offset + 2] = newColorFallback.R;
-                        recoloredPixels[offset + 3] = alpha;
-                        continue;
-                    }
-
-                    var newColor = colorMapping[index]; // Safe now
+                                // Red channel holds index
+                    var newColor = colorMapping[
+                        indexedPixels[offset + 2]
+                        ]; 
 
                     recoloredPixels[offset + 0] = newColor.B;
                     recoloredPixels[offset + 1] = newColor.G;

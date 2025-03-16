@@ -3,4 +3,12 @@
   <PropertyGroup>
     <_LastSelectedProfileId>C:\Users\nukuh\Desktop\c\app\VoidVenture\VoidVenture\Properties\PublishProfiles\VoidVenturePublisher.pubxml</_LastSelectedProfileId>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\ParticleResource.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\PlayerResource.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

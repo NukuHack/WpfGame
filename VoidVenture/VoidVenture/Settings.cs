@@ -248,7 +248,7 @@ namespace VoidVenture
         {
             // Add settings to the manager
             DO.AddSetting(new Setting("RecolorBackground", "If true, recolors the background. If DOUseNoiseTerrain is true, this is useless.", true));
-            DO.AddSetting(new Setting("RecolorPlayer", "If true, recolors the player.", false));
+            DO.AddSetting(new Setting("RecolorPlayer", "If true, recolors the player.", true));
             DO.AddSetting(new Setting("SelectPlayerManually", "Adds the option to choose the player image manually.", false));
             DO.AddSetting(new Setting("UseNoiseTerrain", "If true, generates terrain using noise instead of predefined tiles.", true));
             DO.AddSetting(new Setting("RandomizeTerrainColors", "If true, randomizes terrain colors. If DOUseNoiseTerrain is false, this is useless.", true));
