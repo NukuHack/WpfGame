@@ -54,6 +54,10 @@ namespace VoidVenture
 
             InitializeComponent();
 
+            RightAfterBegining();
+
+            DataContext = this; // IDK what this is ...
+
             mainwindow = this;
 
             this.Loaded += (s, e) =>
@@ -187,10 +191,10 @@ namespace VoidVenture
                 // Wait for map initialization
                 while (columnHeights == null)
                 {
-                    await Task.Delay(14); // Check every 14ms (60 / sec)
+                    await Task.Delay(16); // Check every 16ms (60 / sec)
                 }
 
-            AddPlayerDynamically("images/player/player_space.png");
+            AddPlayerDynamically(VoidVenture.Properties.Resources.Playser_idle_1);
 
             var timer = new DispatcherTimer // ~60 FPS
             { Interval = TimeSpan.FromMilliseconds(16) };
@@ -208,6 +212,72 @@ namespace VoidVenture
                 player.Update(gravity, collidableTiles, columnHeights); // Update player's position smoothly
                 //player.ApplyGravity(gravity);
             }
+        }
+
+        public BitmapImage ConvertByteArrayToBitmapImage(byte[] imageData)
+        {
+            if (imageData == null || imageData.Length == 0)
+                throw new ArgumentException("Invalid image data.");
+
+            var bitmapImage = new BitmapImage();
+            using (var stream = new MemoryStream(imageData))
+            {
+                bitmapImage.BeginInit();
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the stream is fully loaded
+                bitmapImage.StreamSource = stream;
+                bitmapImage.EndInit();
+            }
+            bitmapImage.Freeze(); // Optional: Makes the image cross-thread accessible
+            return bitmapImage;
+        }
+
+
+        private string GetImageExtension(byte[] imageData)
+        {
+            // Ensure the data is long enough to contain a valid header
+            if (imageData.Length < 12)
+                throw new ArgumentException("Invalid image data.");
+
+            // Check for PNG format
+            else if (imageData[0] == 0x89 && imageData[1] == 0x50 && imageData[2] == 0x4E && imageData[3] == 0x47)
+                return ".png";
+
+            // Check for ICO format
+            else if (imageData[0] == 0x00 && imageData[1] == 0x00 && imageData[2] == 0x01 && imageData[3] == 0x00)
+                return ".ico";
+
+            // Check for CUR format
+            else if (imageData[0] == 0x00 && imageData[1] == 0x00 && imageData[2] == 0x02 && imageData[3] == 0x00)
+                return ".cur";
+
+            // Check for JPEG format
+            else if (imageData[0] == 0xFF && imageData[1] == 0xD8 && imageData[2] == 0xFF)
+                return ".jpg";
+
+            // Check for GIF format
+            else if (imageData[0] == 0x47 && imageData[1] == 0x49 && imageData[2] == 0x46 && imageData[3] == 0x38)
+                return ".gif";
+
+            // Check for BMP format
+            else if (imageData[0] == 0x42 && imageData[1] == 0x4D)
+                return ".bmp";
+
+            // Check for TIFF format (little-endian)
+            else if (imageData[0] == 0x49 && imageData[1] == 0x49 && imageData[2] == 0x2A && imageData[3] == 0x00)
+                return ".tiff";
+
+            // Check for TIFF format (big-endian)
+            else if (imageData[0] == 0x4D && imageData[1] == 0x4D && imageData[2] == 0x00 && imageData[3] == 0x2A)
+                return ".tiff";
+
+            // Check for WebP format
+            else if (imageData[0] == 0x52 && imageData[1] == 0x49 && imageData[2] == 0x46 && imageData[3] == 0x46 &&
+                imageData[8] == 0x57 && imageData[9] == 0x45 && imageData[10] == 0x42 && imageData[11] == 0x50)
+                return ".webp";
+
+            // Unsupported format
+            else
+                throw new ArgumentException("Unsupported image format.");
         }
 
 
@@ -235,6 +305,9 @@ namespace VoidVenture
                 case Key.T: ShowDebugInfo(); break;
                 case Key.P: ReLoadImage(); break;
                 case Key.F: DoDebug(); break;
+
+                case Key.J: PauseGame(); break;
+                case Key.K: ResumeGame(); break;
 
                 case Key.Space: Hover(true); break;
 
@@ -297,7 +370,6 @@ namespace VoidVenture
                 MessageBox.Show($"{place}: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             else
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            ResumeGame();
         }
         private void ShowMessage(string message, string place = "")
         {
@@ -306,7 +378,6 @@ namespace VoidVenture
                 MessageBox.Show(message);
             else
                 MessageBox.Show(message, place);
-            ResumeGame();
         }
 
 

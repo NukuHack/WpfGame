@@ -89,6 +89,7 @@ namespace VoidVenture
     public class LastColored
     {
         public string? imgSource;
+        public byte[]? imgByteSource;
         public Palette? _palette;
         public Palette? _randomizedPlette;
         public WriteableBitmap? _originalBitmap;
@@ -106,6 +107,40 @@ namespace VoidVenture
             {
                 tocolor.imgSource = imgSourceRaw;
                 tocolor._originalBitmap = LoadBitmap(tocolor.imgSource);
+                tocolor._palette = CreatePalette(tocolor._originalBitmap);
+                if (tocolor._palette.Colors.Count > 256)
+                {
+                    throw new Exception("Image has too many colors (>256). Reduce colors to 256 or less.");
+                }
+                tocolor._indexedBitmap = ConvertToIndexed(tocolor._originalBitmap, tocolor._palette);
+                tocolor._randomizedPlette = Palette.CreateRandomized(tocolor._palette);
+                tocolor._recoloredBitmap = RecolorIndexedImage(tocolor._indexedBitmap, tocolor._palette, tocolor._randomizedPlette);
+                // Ensure the final recolored bitmap is valid
+                if (tocolor._recoloredBitmap?.PixelWidth == 0 || tocolor._recoloredBitmap?.PixelHeight == 0)
+                    throw new Exception("Recolored image has invalid dimensions.");
+                return tocolor._recoloredBitmap;
+            }
+            catch (OutOfMemoryException)
+            {
+                // Use Dispatcher.Invoke to show error on UI thread
+                Dispatcher.Invoke(() => MessageBox.Show("The image is too large to process. Please try with a smaller image.", "Memory Error", MessageBoxButton.OK, MessageBoxImage.Error));
+                return null;
+            }
+            catch (Exception ex)
+            {
+
+                // Use Dispatcher.Invoke to show error on UI thread
+                Dispatcher.Invoke(() => ErrorMessage(ex, "Failed to recolor image"));
+                return null;
+            }
+        }
+
+        public WriteableBitmap? RecolorImage(byte[] imgSource)
+        {
+            try
+            {
+                tocolor.imgByteSource = imgSource;
+                tocolor._originalBitmap = LoadBitmap(tocolor.imgByteSource);
                 tocolor._palette = CreatePalette(tocolor._originalBitmap);
                 if (tocolor._palette.Colors.Count > 256)
                 {
@@ -183,6 +218,56 @@ namespace VoidVenture
         }
 
 
+        public WriteableBitmap LoadBitmap(byte[] imageData)
+        {
+            BitmapSource bitmapSource;
+
+            if (imageData != null)
+            {
+                // Load image from byte array
+                var extension = GetImageExtension(imageData);
+
+                if (extension is ".ico" or ".cur")
+                {
+                    var decoder = new IconBitmapDecoder(
+                        new MemoryStream(imageData),
+                        BitmapCreateOptions.None,
+                        BitmapCacheOption.None);
+
+                    // Get the first frame (icons can have multiple sizes)
+                    bitmapSource = decoder.Frames[0];
+                }
+                else if (extension is ".png")
+                {
+                    var bitmapImage = new BitmapImage();
+                    bitmapImage.BeginInit();
+                    bitmapImage.StreamSource = new MemoryStream(imageData);
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the stream is fully loaded
+                    bitmapImage.EndInit();
+                    bitmapSource = bitmapImage;
+                }
+                else
+                {
+                    MessageBox.Show($"Image extension not supported: '{extension}'", "Image Recolor Error");
+                    throw new ArgumentException($"Image format not supported.");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("ImageData must be provided.");
+            }
+
+            // Process the loaded image
+            if (bitmapSource.Format == PixelFormats.Indexed8)
+                return Convert8BitToBGRA(bitmapSource);
+            else if (bitmapSource.Format == PixelFormats.Bgra32)
+                return new WriteableBitmap(bitmapSource);
+            else
+            {
+                MessageBox.Show($"Image format not supported: '{bitmapSource.Format}'", "Image Recolor Error");
+                throw new ArgumentException($"Image format not supported.");
+            }
+        }
 
 
         public WriteableBitmap LoadBitmap(string filePath)
@@ -242,6 +327,7 @@ namespace VoidVenture
                 // in that case write your own palette extracting function, cu's I'm lazy and I don't have that kind of files
             }
         }
+
         public static WriteableBitmap Convert8BitToBGRA(BitmapSource indexedImage)
         {
             var palette = indexedImage.Palette.Colors.ToList();

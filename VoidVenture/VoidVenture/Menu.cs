@@ -340,13 +340,13 @@ namespace VoidVenture
         {
             // this was when i wanted to implment the manual saving ... not anymore
             if (string.IsNullOrEmpty(saveFilePath))
-                saveFilePath = Path.Combine(saveDirectory, "Save_001.txt");
+                saveFilePath = Path.Combine(saveDirectory, "Save_001.json");
 
             if (!Path.HasExtension(saveFilePath))
-                saveFilePath += ".txt";
+                saveFilePath += ".json";
 
-            if (Path.GetExtension(saveFilePath) != ".txt")
-                saveFilePath = Path.ChangeExtension(saveFilePath, ".txt");
+            if (Path.GetExtension(saveFilePath) != ".json" && Path.GetExtension(saveFilePath) != ".txt")
+                saveFilePath = Path.ChangeExtension(saveFilePath, ".json");
         }
 
         private string?[] GetSaveFiles()
@@ -354,9 +354,14 @@ namespace VoidVenture
             if (!Directory.Exists(saveDirectory))
                 return Array.Empty<string>();
 
-            return Directory.GetFiles(saveDirectory, "*.txt")
-                            .Select(Path.GetFileName)
-                            .ToArray();
+            var txtFiles = Directory.GetFiles(saveDirectory, "*.txt")
+                                    .Select(Path.GetFileName);
+
+            var jsonFiles = Directory.GetFiles(saveDirectory, "*.json")
+                                     .Select(Path.GetFileName);
+
+            // Combine and return the results as an array
+            return txtFiles.Concat(jsonFiles).ToArray();
         }
 
         private void SaveData()

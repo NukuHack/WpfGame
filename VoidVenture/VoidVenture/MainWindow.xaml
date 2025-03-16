@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:VoidVenture"
         mc:Ignorable="d"
         Title="Space Game" 
+        DataContext="{Binding RelativeSource={RelativeSource Self}}"
             Width="1100" Height="600" 
             MinWidth="1100" MinHeight="600" 
         WindowState="Maximized"
@@ -271,7 +272,6 @@
                             <Grid Grid.Row="1" Margin="20">
                                 <!-- ComboBox for selecting save files -->
                                 <ComboBox x:Name="saveFileSelector" 
-                                  Style="{StaticResource CoolComboBoxStyle}" 
                                   HorizontalAlignment="Left" 
                                   VerticalAlignment="Top" 
                                   Width="300" 
@@ -333,6 +333,12 @@
                             <!-- Header -->
                             <TextBlock Text="General Options" FontSize="20" FontWeight="Bold" Margin="40,20,20,20" />
 
+                            <Grid Grid.Row="1" Margin="20">
+
+                                <!-- Data to be -->
+
+                            </Grid>
+                            
                         </Grid>
                     </Border>
 
@@ -348,8 +354,39 @@
                             </Grid.RowDefinitions>
 
                             <!-- Header -->
-                            <TextBlock Text="Settings Menu" FontSize="20" FontWeight="Bold" Margin="40,20,20,20" />
+                            <TextBlock Text="Settings Menu" FontSize="20" FontWeight="Bold" Margin="40,20,20,10" />
 
+
+                            <!-- Buttons for Reset and Save -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,40,0">
+                                <Button Content="Reset All to Defaults"
+                                        Style="{StaticResource CoolButtonStyle}" Width="150" Margin="5" Click="ResetAllSettings_Click" />
+                                <Button Content="Save Settings"
+                                        Style="{StaticResource CoolButtonStyle}" Width="100" Margin="5" Click="SaveSettings_Click" />
+                            </StackPanel>
+                            
+                            <Grid Grid.Row="1" Margin="20">
+                                <!-- Scrollable Area -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox Name="SettingsListBox" Margin="10" Background="Transparent"
+         ItemsSource="{Binding DO.Settings.Values}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Vertical" Margin="5">
+                                                    <!-- Bind to the Setting's properties -->
+                                                    <CheckBox IsChecked="{Binding Value, Mode=TwoWay}" 
+                          Content="{Binding Name}" 
+                          FontWeight="Bold"
+                          Checked="CheckBox_Checked" 
+                          Unchecked="CheckBox_Unchecked" />
+                                                    <TextBlock Text="{Binding Desc}" Foreground="Gray" Margin="20,0,0,10" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </ScrollViewer>
+
+                            </Grid>
                         </Grid>
                     </Border>
 

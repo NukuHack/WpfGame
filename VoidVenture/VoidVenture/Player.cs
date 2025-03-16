@@ -350,7 +350,8 @@ namespace VoidVenture
             }
         }
 
-        public void AddPlayerDynamically(string PlayerImagePath)
+
+        public void AddPlayerDynamically(byte[] playerImageData)
         {
             if (GameCanvas == null || GameCanvas.ActualWidth <= 0 || GameCanvas.ActualHeight <= 0)
             {
@@ -361,45 +362,98 @@ namespace VoidVenture
             try
             {
                 BitmapImage bitmapImage = new BitmapImage();
-                if (DO.SelectPlayerManually)
+
+                // Allow the user to select an image file
+                var openFileDialog = new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*" };
+                if (DO.SelectPlayerManually && openFileDialog.ShowDialog() == true)
                 {
-
-                    var openFileDialog = new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*" };
-                    if (openFileDialog.ShowDialog() == true)
-                        PlayerImagePath = openFileDialog.FileName;
-
+                    var PlayerImagePath = openFileDialog.FileName;
+                    // Load the image from the selected file
+                    bitmapImage = new BitmapImage();
                     bitmapImage.BeginInit();
                     bitmapImage.UriSource = new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute);
                     bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
                     bitmapImage.EndInit();
-
                 }
                 else
                 {
-                    bitmapImage.BeginInit();
-                    bitmapImage.UriSource = new Uri(PlayerImagePath, UriKind.RelativeOrAbsolute);
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
-                    bitmapImage.EndInit();
+                    // Use the provided byte array to create the BitmapImage
+                    if (playerImageData == null || playerImageData.Length == 0)
+                    {
+                        throw new ArgumentException("Player image data is null or empty.");
+                    }
+
+                    bitmapImage = ConvertByteArrayToBitmapImage(playerImageData);
                 }
 
+                // Initialize the player object with the loaded image
                 player = new Player(this, GameCanvas.ActualWidth * 0.5, GameCanvas.ActualHeight * 0.3, 1, bitmapImage.PixelWidth, bitmapImage.PixelHeight);
-                //playerImage.Source = player.Image;
 
-                PlayerImageInitialize(PlayerImagePath);
+                // Initialize the player image in the UI
+                PlayerImageInitialize(playerImageData);
 
-                // Create the matrix transform for combined translation and rotation and scale
+                // Create the matrix transform for combined translation, rotation, and scale
                 playerImage.RenderTransform = new MatrixTransform();
 
                 // Add the player image to the canvas
                 GameCanvas.Children.Add(playerImage);
-
-                //Console.WriteLine($"Player added successfully. Position: X={player.X}, Y={player.Y}");
             }
             catch (Exception ex)
             {
                 ErrorMessage(ex, "Failed to load player image");
             }
         }
+
+
+
+        public void PlayerImageInitialize(byte[] playerImageRaw, bool doReplace = false)
+        {
+            if (playerImageRaw == null || playerImageRaw.Length == 0)
+            {
+                throw new ArgumentException("Player image data is null or empty.");
+            }
+
+            if (!DO.RecolorPlayer)
+            {
+                // Load the player image from the raw byte array
+                BitmapImage bitmapImage = ConvertByteArrayToBitmapImage(playerImageRaw);
+
+                if (!doReplace)
+                {
+                    // Create a new Image control if not replacing
+                    playerImage = new System.Windows.Controls.Image
+                    {
+                        Source = bitmapImage,
+                        Width = player.OriginWidth,
+                        Height = player.OriginHeight,
+                        RenderTransformOrigin = new System.Windows.Point(0, 0)
+                    };
+                }
+                else
+                {
+                    // Replace the source of the existing Image control
+                    playerImage.Source = bitmapImage;
+                }
+            }
+            else
+            {
+                // Recolor the image
+                var playerRecolored = RecolorImage(playerImageRaw);
+
+                if (!doReplace)
+                {
+                    // Create a new Image control if not replacing
+                    playerImage = new System.Windows.Controls.Image
+                    {
+                        Source = playerRecolored,
+                        Width = player.OriginWidth,
+                        Height = player.OriginHeight,
+                        RenderTransformOrigin = new System.Windows.Point(0, 0)
+                    };
+                }
+            }
+        }
+
 
         public void PlayerImageInitialize(string playerImageUri, bool doReplace = false)
         {
@@ -418,7 +472,7 @@ namespace VoidVenture
                         Source = playerImageSource,
                         Width = player.OriginWidth,
                         Height = player.OriginHeight,
-                        RenderTransformOrigin = new System.Windows.Point(0, 0) // Set origin for rotation
+                        RenderTransformOrigin = new System.Windows.Point(0, 0)
                     };
                 else
                     playerImage.Source = playerImageSource;
@@ -435,14 +489,13 @@ namespace VoidVenture
                         Source = playerRecolored,
                         Width = player.OriginWidth,
                         Height = player.OriginHeight,
-                        RenderTransformOrigin = new System.Windows.Point(0, 0), // Set origin for rotation
+                        RenderTransformOrigin = new System.Windows.Point(0, 0)
                     };
                 else
                     playerImage.Source = playerRecolored;
 
             }
         }
-
 
         public void Player_RePos()
         {

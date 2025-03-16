@@ -39,7 +39,7 @@ namespace VoidVenture
         // Properties of the Setting class
         public string Name { get; set; } // The name of the setting
         public string Desc { get; set; } // Description or comment for the setting
-        public bool? Default { get; set; } // Default value of the setting
+        public bool Default { get; set; } // Default value of the setting
         public bool Value { get; set; } // Current value of the setting
 
         // Constructor to initialize the setting
@@ -48,13 +48,13 @@ namespace VoidVenture
             Name = name;
             Desc = desc;
             Value = value;
-            Default = defaultValue;
+            Default = defaultValue==null?value:(bool)defaultValue;
         }
 
         // Method to reset the setting to its default value
         public void ResetToDefault()
         {
-            Value = (bool)Default;
+            Value = Default;
         }
     }
 
@@ -248,7 +248,7 @@ namespace VoidVenture
         {
             // Add settings to the manager
             DO.AddSetting(new Setting("RecolorBackground", "If true, recolors the background. If DOUseNoiseTerrain is true, this is useless.", true));
-            DO.AddSetting(new Setting("RecolorPlayer", "If true, recolors the player.", true));
+            DO.AddSetting(new Setting("RecolorPlayer", "If true, recolors the player.", false));
             DO.AddSetting(new Setting("SelectPlayerManually", "Adds the option to choose the player image manually.", false));
             DO.AddSetting(new Setting("UseNoiseTerrain", "If true, generates terrain using noise instead of predefined tiles.", true));
             DO.AddSetting(new Setting("RandomizeTerrainColors", "If true, randomizes terrain colors. If DOUseNoiseTerrain is false, this is useless.", true));
@@ -256,9 +256,89 @@ namespace VoidVenture
             DO.AddSetting(new Setting("RandomizeTerrainHeights", "If true, randomizes terrain heights. If DOUseNoiseTerrain is false, this is useless.", true));
             DO.AddSetting(new Setting("Debug", "Enables debug mode.", false));
             DO.AddSetting(new Setting("UseChunkGen", "Uses the chunk-grid system instead of the usual all-at-once method. Currently does not work correctly.", false));
+
         }
 
 
+        public void RightAfterBegining()
+        {
+            PopulateSettingsListBox();
+        }
+
+
+        private void ResetAllSettings_Click(object sender, RoutedEventArgs e)
+        {
+            // Reset all settings to their default values
+            DO.ResetAllToDefaults();
+
+            // Repopulate the ListBox
+            PopulateSettingsListBox();
+        }
+
+        private void SaveSettings_Click(object sender, RoutedEventArgs e)
+        {
+            // Save the current settings to a JSON file
+            SaveData();
+
+            // Optionally repopulate the ListBox if needed
+            PopulateSettingsListBox();
+        }
+
+        private void PopulateSettingsListBox()
+        {
+            // Clear existing items
+            SettingsListBox.Items.Clear();
+
+            // Add each setting object to the ListBox
+            foreach (var setting in DO.Settings.Values)
+            {
+                SettingsListBox.Items.Add(setting);
+            }
+        }
+
+        private void CheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            // Get the CheckBox that triggered the event
+            var checkBox = sender as CheckBox;
+
+            // Get the associated Setting object
+            var setting = checkBox?.DataContext as Setting;
+
+            if (setting != null)
+            {
+                // Call your custom function here
+                OnSettingChecked(setting);
+            }
+        }
+
+        private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // Get the CheckBox that triggered the event
+            var checkBox = sender as CheckBox;
+
+            // Get the associated Setting object
+            var setting = checkBox?.DataContext as Setting;
+
+            if (setting != null)
+            {
+                // Call your custom function here
+                OnSettingUnchecked(setting);
+            }
+        }
+
+        private void OnSettingChecked(Setting setting)
+        {
+            // Handle the "Checked" event
+            Console.WriteLine($"Setting '{setting.Name}' was checked.");
+            // Add your logic here
+        }
+
+        private void OnSettingUnchecked(Setting setting)
+        {
+            // Handle the "Unchecked" event
+            Console.WriteLine($"Setting '{setting.Name}' was unchecked.");
+            // Add your logic here
+        }
 
     }
 }
