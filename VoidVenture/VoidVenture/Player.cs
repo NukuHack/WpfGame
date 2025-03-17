@@ -45,7 +45,7 @@ namespace VoidVenture
         public double Speed { get; set; }
         public bool isOnGround { get; set; } = false;
         public double Rotation { get; set; } = 0;
-        public double friction { get; set; } = 0.85;
+        public double Friction { get; set; } = 0.85;
 
 
         // Dimensions
@@ -53,7 +53,7 @@ namespace VoidVenture
         public double Width, Height;
 
         // Collision
-        public Rect CollisionBounds => new Rect(X, Y, Width, Height);
+        public Rect CollisionBounds => new(X, Y, Width, Height);
 
         // Visuals
         public MainWindow _window;
@@ -98,40 +98,43 @@ namespace VoidVenture
             X += Velocity.X; // Horizontal movement
             Y += Velocity.Y; // Vertical movement
 
-            ClampPosition();
+            if (!_window.DO.UseNoiseTerrain)
+                ClampPosition();
+            else
+                ClampVelocity();
 
             if (_window.DO.UseNoiseTerrain)
                 HandleEdgeMovement();
 
-            // Apply friction after collision resolution
-            Velocity = new Vector(Velocity.X * friction, Velocity.Y * friction);
+            // Apply friction conditionally
+            Velocity = new Vector(Velocity.X * Friction, Velocity.Y * Friction);
         }
 
         private void HandleEdgeMovement()
         {
             double edge = 0.95;
-            if (X >= _window.ActualWidth * edge)
+            if (X + Width >= _window.currentWidth * edge)
             {
-                double correction = X - _window.ActualWidth * edge;
+                double correction = X + Width - _window.currentWidth * edge;
                 _window.MoveOffset(Direction.Right, correction);
                 X -= correction;
             }
-            else if (X <= _window.ActualWidth * (1 - edge))
+            else if (X <= _window.currentWidth * (1 - edge))
             {
-                double correction = X - _window.ActualWidth * (1 - edge);
+                double correction = X - _window.currentWidth * (1 - edge);
                 _window.MoveOffset(Direction.Right, correction);
                 X -= correction;
             }
 
-            if (Y + Height >= _window.ActualHeight * edge)
+            if (Y + Height >= _window.currentHeight * edge)
             {// double it for bottom (because it looks bad othervise)
-                double correction = Y + Height - _window.ActualHeight * edge;
+                double correction = Y + Height - _window.currentHeight * edge;
                 _window.MoveOffset(Direction.Down, correction);
                 Y -= correction;
             }
-            else if (Y <= _window.ActualHeight * (1 - edge))
+            else if (Y <= _window.currentHeight * (1 - edge))
             {
-                double correction = Y - _window.ActualHeight * (1 - edge);
+                double correction = Y - _window.currentHeight * (1 - edge);
                 _window.MoveOffset(Direction.Down, correction);
                 Y -= correction;
             }
@@ -139,8 +142,24 @@ namespace VoidVenture
 
         private void ClampPosition()
         {
-            X = Math2.Clamp(X, 0, _window.currentWidth - Width);
-            Y = Math2.Clamp(Y, 0, _window.currentHeight - Height);
+            double edge = 0.95;
+            X = Math2.Clamp(X, _window.currentWidth * (1 - edge), _window.currentWidth* edge);
+            Y = Math2.Clamp(Y, _window.currentHeight * (1 - edge), _window.currentHeight * edge);
+        }
+        private void ClampVelocity()
+        {
+            double maxX = _window.currentWidth * 0.95;
+            double maxY = _window.currentHeight * 0.95;
+
+            // Calculate the maximum allowed velocity to stay within bounds
+            double maxVelX = maxX - X;
+            double maxVelY = maxY - Y;
+
+            // Clamp the velocity components
+            Velocity = new Vector(
+                Math2.Clamp(Velocity.X, 0, maxVelX),
+                Math2.Clamp(Velocity.Y, 0, maxVelY)
+            );
         }
 
         private void HandleCollisions(List<Rect>? collidableTiles, double[]? heightMap)
@@ -174,9 +193,6 @@ namespace VoidVenture
             // Reset isOnGround at the start of the frame
             isOnGround = false;
 
-            // Store the original velocity for reference
-            Vector originalVelocity = Velocity;
-
             foreach (var tile in collidableTiles)
             {
                 if (!bounds.IntersectsWith(tile)) continue;
@@ -192,8 +208,7 @@ namespace VoidVenture
                         X = tile.Left - Width;
                     else if (Velocity.X < 0 && bounds.Left < tile.Right)
                         X = tile.Right;
-
-                    Velocity = new Vector(0, Velocity.Y);
+                    Velocity = new Vector(0, Velocity.Y); // Reset X velocity
                 }
                 else
                 {
@@ -214,8 +229,6 @@ namespace VoidVenture
 
         public void ResolveHeightmapCollision(double[] heightMap)
         {
-            var bounds = CollisionBounds;
-
             // Reset isOnGround at the start of the frame
             isOnGround = false;
 
@@ -227,18 +240,18 @@ namespace VoidVenture
                 if (Y + Height >= terrainHeight)
                 {
                     Y = terrainHeight - Height;
-                    Velocity = new Vector(Velocity.X * friction, 0);
+                    Velocity = new Vector(Velocity.X * Friction, 0);
                     isOnGround = true;
                 }
             }
         }
 
         private static readonly Dictionary<Direction, Vector> DirectionVectors =
-            new Dictionary<Direction, Vector>
+            new()
             {
                 { Direction.Left, new Vector(-1, 0) },
                 { Direction.Right, new Vector(1, 0) },
-                { Direction.Up, new Vector(0, -1) },
+                { Direction.Up, new Vector(0, -2) },
                 { Direction.Down, new Vector(0, 1) }
             };
 
@@ -246,19 +259,35 @@ namespace VoidVenture
         {
             if (DirectionVectors.TryGetValue(direction, out Vector velocityAdjustment))
             {
-                Velocity = new Vector(
-                    Velocity.X + velocityAdjustment.X * Speed * _window.Scale,
-                    Velocity.Y + velocityAdjustment.Y * Speed * _window.Scale
-                );
 
                 if (direction == Direction.Up && isOnGround)
                 {
                     Velocity = new Vector(Velocity.X, -Speed * 3 * _window.Scale);
                     isOnGround = false;
+                    return;
                 }
+                Velocity = new Vector(
+                    Velocity.X + velocityAdjustment.X * Speed * _window.Scale,
+                    Velocity.Y + velocityAdjustment.Y * Speed * _window.Scale
+                );
             }
+            UpdateRotation(direction);
         }
 
+
+        private static readonly Dictionary<Direction, double> RotationAngles =
+            new()
+        {
+            { Direction.Left, 180 },
+            { Direction.Right, 0 },
+            { Direction.Up, 270 },
+            { Direction.Down, 90 }
+        };
+
+        public void UpdateRotation(Direction direction)
+        {
+            Rotation = RotationAngles.ContainsKey(direction) ? RotationAngles[direction] : 0;
+        }
 
         private void UpdateTransform()
         {
@@ -267,7 +296,7 @@ namespace VoidVenture
             this.Height = OriginHeight * BaseScaleFactor * _window.Scale;
 
             // Create transformation matrix
-            Matrix matrix = new Matrix();
+            Matrix matrix = new();
 
             // Apply scaling based on conditions
             if (Rotation >= 180)
@@ -291,20 +320,6 @@ namespace VoidVenture
             _window.GameCanvas.InvalidateVisual();
         }
 
-
-        private static readonly Dictionary<Direction, double> RotationAngles =
-            new Dictionary<Direction, double>()
-        {
-            { Direction.Left, 180 },
-            { Direction.Right, 0 },
-            { Direction.Up, 270 },
-            { Direction.Down, 90 }
-        };
-
-        public void UpdateRotation(Direction direction)
-        {
-            Rotation = RotationAngles.ContainsKey(direction) ? RotationAngles[direction] : 0;
-        }
 
 
 
@@ -337,7 +352,7 @@ namespace VoidVenture
             if (openFileDialog.ShowDialog() == true)
             {
                 PlayerImageInitialize(openFileDialog.FileName, true);
-                BitmapImage bitmapImage = new BitmapImage();
+                BitmapImage bitmapImage = new();
                 bitmapImage.BeginInit();
                 bitmapImage.UriSource = new Uri(openFileDialog.FileName, UriKind.RelativeOrAbsolute);
                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded
@@ -361,7 +376,7 @@ namespace VoidVenture
 
             try
             {
-                BitmapImage bitmapImage = new BitmapImage();
+                BitmapImage bitmapImage = new();
 
                 // Allow the user to select an image file
                 var openFileDialog = new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp|All files|*.*" };
@@ -460,7 +475,7 @@ namespace VoidVenture
             if (!DO.RecolorPlayer)
             {
                 // Load the player image
-                BitmapImage playerImageSource = new BitmapImage();
+                BitmapImage playerImageSource = new();
                 playerImageSource.BeginInit();
                 playerImageSource.UriSource = new Uri(playerImageUri, UriKind.RelativeOrAbsolute);
                 playerImageSource.CacheOption = BitmapCacheOption.OnLoad; // Ensure the image is fully loaded

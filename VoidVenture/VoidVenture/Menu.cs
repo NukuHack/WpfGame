@@ -30,7 +30,6 @@ using Microsoft.Win32.SafeHandles;
 using Microsoft.Win32;
 using System.Windows.Controls.Primitives;
 using System.Numerics;
-using System.Text.Json;
 
 
 namespace VoidVenture
@@ -56,7 +55,7 @@ namespace VoidVenture
             try
             {
                 // Serialize the settings dictionary to JSON
-                string json = JsonSerializer.Serialize(new GameDataManager(Name,Coins,Saved), new JsonSerializerOptions
+                string json = JsonSerializer.Serialize(new GameDataManager(Name, Coins, Saved), new JsonSerializerOptions
                 {
                     WriteIndented = true // For pretty-printing
                 });
@@ -138,8 +137,8 @@ namespace VoidVenture
                 // Create an anonymous object containing only the data to serialize
                 var dataToSerialize = new
                 {
-                    GameData = this.GameData,
-                    SettingsBool = this.SettingsBool
+                    this.GameData,
+                    this.SettingsBool
                 };
 
                 string json = JsonSerializer.Serialize(dataToSerialize, new JsonSerializerOptions
@@ -199,20 +198,15 @@ namespace VoidVenture
         private void ClearData()
         {
             // Reset to default
-            Settings = new SettingsManager();
-            GameData = new GameDataManager();
-            SettingsBool = new Dictionary<string, bool>();
+            Settings = new();
+            GameData = new();
+            SettingsBool = new();
         }
 
         // Helper methods for UI interaction
         private void ShowMessage(string message)
         {
             MessageBox.Show(message);
-        }
-
-        private void ResumeGame()
-        {
-            // Logic to resume the game
         }
 
         private void ErrorMessage(Exception ex, string context)
@@ -352,7 +346,7 @@ namespace VoidVenture
         private string?[] GetSaveFiles()
         {
             if (!Directory.Exists(saveDirectory))
-                return Array.Empty<string>();
+                return [];
 
             var txtFiles = Directory.GetFiles(saveDirectory, "*.txt")
                                     .Select(Path.GetFileName);
