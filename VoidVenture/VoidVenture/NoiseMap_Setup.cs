@@ -79,24 +79,6 @@ namespace VoidVenture
     }
 
 
-    public class TerrainChunk
-    {
-        public int StartX { get; }
-        public int Width { get; }
-        public int Height { get; }
-        public uint[,] Pixels { get; }
-        public double[] Heights { get; }
-
-        public TerrainChunk(int startX, int width, int height)
-        {
-            StartX = startX;
-            Width = width;
-            Height = height;
-            Pixels = new uint[height, width];
-            Heights = new double[width];
-        }
-    }
-
 
     public class TerrainColorGenerator
     {
@@ -413,20 +395,6 @@ namespace VoidVenture
         }
 
 
-        public void MoveTerrain(Direction direction)
-        {
-            if (isGamePaused) return;
-            switch (direction)
-            {
-                case Direction.Up: offsetY += 100; break;
-                case Direction.Down: offsetY -= 100; break;
-                case Direction.Right: offsetX += 100; break;
-                case Direction.Left: offsetX -= 100; break;
-            }
-            infoText.Visibility = Visibility.Collapsed;
-            RenderTerrain();
-        }
-
         public void MoveOffset(Direction direction, double value)
         {
             if (isGamePaused) return;
@@ -439,6 +407,8 @@ namespace VoidVenture
             }
             RenderTerrain();
         }
+
+
 
         public void DoDebug()
         {

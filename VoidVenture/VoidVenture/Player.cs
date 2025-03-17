@@ -39,13 +39,12 @@ namespace VoidVenture
     {
 
         // Position & Movement
-        public double X { get; set; }
-        public double Y { get; set; }
+        public double X,Y;
         public Vector Velocity { get; set; } = new Vector(0, 0);
         public double Speed { get; set; }
-        public bool isOnGround { get; set; } = false;
-        public double Rotation { get; set; } = 0;
-        public double Friction { get; set; } = 0.85;
+        public bool isOnGround = false;
+        public double Rotation = 0;
+        public double Friction = 0.85;
 
 
         // Dimensions
@@ -95,7 +94,6 @@ namespace VoidVenture
 
         private void Move()
         {
-            // Apply dynamic friction based on surface type
             double surfaceFriction = isOnGround ? Friction : 1.0; // Less friction in the air
             Velocity = new Vector(Velocity.X * surfaceFriction, Velocity.Y * surfaceFriction);
 
@@ -118,33 +116,33 @@ namespace VoidVenture
         private void HandleEdgeMovement()
         {
             double edge = 0.95;
-            double buffer = 10; // Small buffer to prevent jittering
 
-            if (X + Width >= _window.currentWidth * edge)
+            // Helper method to handle movement along one axis
+            void AdjustPosition(ref double position, double size, double windowDimension, Direction direction)
             {
-                double correction = X + Width - _window.currentWidth * edge + buffer;
-                _window.MoveOffset(Direction.Right, correction);
-                X -= correction;
-            }
-            else if (X <= _window.currentWidth * (1 - edge))
-            {
-                double correction = _window.currentWidth * (1 - edge) - X - buffer;
-                _window.MoveOffset(Direction.Left, correction);
-                X += correction;
+                double edgeThreshold = windowDimension * edge;
+
+                // Check if the object is beyond the right/bottom edge
+                if (position + size >= edgeThreshold)
+                {
+                    double correction = position + size - edgeThreshold;
+                    _window.MoveOffset(direction, correction);
+                    position -= correction;
+                }
+                // Check if the object is beyond the left/top edge
+                else if (position <= windowDimension * (1 - edge))
+                {
+                    double correction = position - windowDimension * (1 - edge);
+                    _window.MoveOffset(direction, correction); // Move in the opposite direction
+                    position -= correction;
+                }
             }
 
-            if (Y + Height >= _window.currentHeight * edge)
-            {
-                double correction = Y + Height - _window.currentHeight * edge + buffer;
-                _window.MoveOffset(Direction.Down, correction);
-                Y -= correction;
-            }
-            else if (Y <= _window.currentHeight * (1 - edge))
-            {
-                double correction = _window.currentHeight * (1 - edge) - Y - buffer;
-                _window.MoveOffset(Direction.Up, correction);
-                Y += correction;
-            }
+            // Adjust X-axis position
+            AdjustPosition(ref X, Width, _window.currentWidth, Direction.Right);
+
+            // Adjust Y-axis position
+            AdjustPosition(ref Y, Height, _window.currentHeight, Direction.Down);
         }
 
         private void ClampPosition()

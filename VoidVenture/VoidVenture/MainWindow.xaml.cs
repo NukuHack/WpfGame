@@ -5,7 +5,6 @@ using System.Text;
 using System.Linq;
 //using System.Drawing;
 using System.Xml.Linq;
-using System.Numerics;
 using System.Text.Json;
 using System.Reflection;
 using System.Diagnostics;
@@ -211,7 +210,7 @@ namespace VoidVenture
             if (player != null)
             {
                 player.Update(gravity, collidableTiles, columnHeights); // Update player's position smoothly
-                //player.ApplyGravity(gravity);
+
             }
         }
 
@@ -327,7 +326,7 @@ namespace VoidVenture
                 else if (DO.UseNoiseTerrain)
                 {
                     if (DO.Debug)
-                        MoveTerrain(direction);
+                        MoveOffset(direction, 100);
                     else
                         ShowMessage("First you have to enable debug mode for that (F)");
                 }

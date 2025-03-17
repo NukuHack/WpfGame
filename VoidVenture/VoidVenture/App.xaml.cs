@@ -7,6 +7,17 @@ using System.Data;
 namespace VoidVenture
 {
 
+    public static class MathHelper
+    {
+        public static float Lerp(float a, float b, float t)
+        {
+            // Clamp t between 0 and 1 to ensure valid interpolation
+            t = Math.Clamp(t, 0f, 1f);
+            return a + (b - a) * t;
+        }
+
+    }
+
 
     public static class Color2
     {
