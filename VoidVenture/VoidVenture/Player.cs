@@ -86,15 +86,19 @@ namespace VoidVenture
 
         public void ApplyGravity(double gravity)
         {
-            // Apply gravity to TargetY
             if (!isOnGround)
-            {
-                Velocity = new Vector(Velocity.X, Velocity.Y + gravity * (_window.Scale));
+            {   // Gradually increase gravity for a smoother fall
+                double scaledGravity = gravity * (_window.Scale) * (1 + Math.Abs(Velocity.Y) * 0.1);
+                Velocity = new Vector(Velocity.X, Velocity.Y + scaledGravity);
             }
         }
 
         private void Move()
         {
+            // Apply dynamic friction based on surface type
+            double surfaceFriction = isOnGround ? Friction : 1.0; // Less friction in the air
+            Velocity = new Vector(Velocity.X * surfaceFriction, Velocity.Y * surfaceFriction);
+
             X += Velocity.X; // Horizontal movement
             Y += Velocity.Y; // Vertical movement
 
@@ -111,35 +115,37 @@ namespace VoidVenture
         }
 
 
-            private void HandleEdgeMovement()
-            {
-                double edge = 0.95;
-                if (X + Width >= _window.currentWidth * edge)
-                {
-                    double correction = X + Width - _window.currentWidth * edge;
-                    _window.MoveOffset(Direction.Right, correction);
-                    X -= correction;
-                }
-                else if (X <= _window.currentWidth * (1 - edge))
-                {
-                    double correction = _window.currentWidth * (1 - edge) - X;
-                    _window.MoveOffset(Direction.Left, correction);
-                    X += correction;
-                }
+        private void HandleEdgeMovement()
+        {
+            double edge = 0.95;
+            double buffer = 10; // Small buffer to prevent jittering
 
-                if (Y + Height >= _window.currentHeight * edge)
-                {// double it for bottom (because it looks bad othervise)
-                    double correction = Y + Height - _window.currentHeight * edge;
-                    _window.MoveOffset(Direction.Down, correction);
-                    Y -= correction;
-                }
-                else if (Y <= _window.currentHeight * (1 - edge))
-                {
-                    double correction = _window.currentHeight * (1 - edge) - Y;
-                    _window.MoveOffset(Direction.Up, correction);
-                    Y += correction;
-                }
+            if (X + Width >= _window.currentWidth * edge)
+            {
+                double correction = X + Width - _window.currentWidth * edge + buffer;
+                _window.MoveOffset(Direction.Right, correction);
+                X -= correction;
             }
+            else if (X <= _window.currentWidth * (1 - edge))
+            {
+                double correction = _window.currentWidth * (1 - edge) - X - buffer;
+                _window.MoveOffset(Direction.Left, correction);
+                X += correction;
+            }
+
+            if (Y + Height >= _window.currentHeight * edge)
+            {
+                double correction = Y + Height - _window.currentHeight * edge + buffer;
+                _window.MoveOffset(Direction.Down, correction);
+                Y -= correction;
+            }
+            else if (Y <= _window.currentHeight * (1 - edge))
+            {
+                double correction = _window.currentHeight * (1 - edge) - Y - buffer;
+                _window.MoveOffset(Direction.Up, correction);
+                Y += correction;
+            }
+        }
 
         private void ClampPosition()
         {
@@ -187,17 +193,14 @@ namespace VoidVenture
             }
         }
 
-        public void ResolveTileCollision(List<Rect> collidableTiles)
+        private void ResolveTileCollision(List<Rect> collidableTiles)
         {
             var bounds = CollisionBounds;
-
-            // Reset isOnGround at the start of the frame
             isOnGround = false;
 
             foreach (var tile in collidableTiles)
             {
                 if (!bounds.IntersectsWith(tile)) continue;
-
 
                 float overlapX = (float)Math.Min(bounds.Right - tile.Left, tile.Right - bounds.Left);
                 float overlapY = (float)Math.Min(bounds.Bottom - tile.Top, tile.Bottom - bounds.Top);
@@ -205,23 +208,14 @@ namespace VoidVenture
                 if (overlapX < overlapY)
                 {
                     // Horizontal collision
-                    if (Velocity.X > 0 && bounds.Right > tile.Left)
-                        X = tile.Left - Width;
-                    else if (Velocity.X < 0 && bounds.Left < tile.Right)
-                        X = tile.Right;
+                    X += (Velocity.X > 0) ? -(overlapX + 0.1) : overlapX + 0.1; // Add small offset to prevent sticking
                     Velocity = new Vector(0, Velocity.Y); // Reset X velocity
                 }
                 else
                 {
                     // Vertical collision
-                    if (Velocity.Y > 0 && bounds.Bottom > tile.Top)
-                    {
-                        Y = tile.Top - Height;
-                        isOnGround = true;
-                    }
-                    else if (Velocity.Y < 0 && bounds.Top < tile.Bottom)
-                        Y = tile.Bottom;
-
+                    Y += (Velocity.Y > 0) ? -(overlapY + 0.1) : overlapY + 0.1; // Add small offset to prevent sticking
+                    if (Velocity.Y > 0) isOnGround = true;
                     Velocity = new Vector(Velocity.X, 0);
                 }
             }
@@ -256,20 +250,23 @@ namespace VoidVenture
                 { Direction.Down, new Vector(0, 1) }
             };
 
+        public double MaxSpeed { get; set; } = 5; // Maximum speed for the player
+
         public void SetMovementDirection(Direction direction)
         {
             if (DirectionVectors.TryGetValue(direction, out Vector velocityAdjustment))
             {
-
                 if (direction == Direction.Up && isOnGround)
                 {
                     Velocity = new Vector(Velocity.X, -Speed * 3 * _window.Scale);
                     isOnGround = false;
                     return;
                 }
+
+                // Apply acceleration instead of directly setting velocity
                 Velocity = new Vector(
-                    Velocity.X + velocityAdjustment.X * Speed * _window.Scale,
-                    Velocity.Y + velocityAdjustment.Y * Speed * _window.Scale
+                    Math.Clamp(Velocity.X + velocityAdjustment.X * _window.Scale, -MaxSpeed, MaxSpeed),
+                    Math.Clamp(Velocity.Y + velocityAdjustment.Y *_window.Scale, -MaxSpeed, MaxSpeed)
                 );
             }
             UpdateRotation(direction);
