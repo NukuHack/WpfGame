@@ -5,9 +5,10 @@
 
 A procedurally enhanced 2D platformer built with C# and WPF, featuring dynamic color systems and modular game architecture. Perfect for learning WPF game development patterns and image manipulation techniques.
 
-Some basic C#, made for some testing and to have fun developing it.
-- Most of the code and the entire readme was written by AI so don't expect much
-- Some parts may not work or some information might be false ... just like usual AI
+## **Why Use .NET?**
+You might wonder why I’m using .NET. While I’d love to avoid it, creating this game without .NET would require a lot of research and effort,  something I’m admittedly too lazy to dive into right now. 😅
+
+---
 
 ## 🚀 Jump To 
 - 🤖 [Key Features](#key-features)
