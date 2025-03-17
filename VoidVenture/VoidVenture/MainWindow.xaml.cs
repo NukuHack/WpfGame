@@ -38,7 +38,7 @@ namespace VoidVenture
 
     public partial class MainWindow : System.Windows.Window
     {
-        public Random rnd = new Random();
+        public Random rnd = new();
         public Window mainwindow;
         public DispatcherTimer timer;
 
@@ -318,8 +318,6 @@ namespace VoidVenture
 
             if (direction != Direction.None)
             {
-                player.UpdateRotation(direction);
-
                 if (!Keyboard.IsKeyDown(Key.LeftCtrl))
                 {
                     if (player != null)

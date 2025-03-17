@@ -14,7 +14,7 @@ namespace VoidVenture
 
         public static Color Lerp(this Color from, Color to, float t)
         {
-            t = Math2.Clamp(t, 0f, 1f); // Ensure t is between 0-1
+            t = Math.Clamp(t, 0f, 1f); // Ensure t is between 0-1
 
             byte r = (byte)(from.R + (to.R - from.R) * t);
             byte g = (byte)(from.G + (to.G - from.G) * t);
@@ -30,21 +30,6 @@ namespace VoidVenture
         }
     }
 
-    public static class Math2
-    {
-        public static float Clamp(float value, float min, float max)
-        {
-            return value < min ? min : value > max ? max : value;
-        }
-        public static double Clamp(double value, double min, double max)
-        {
-            return value < min ? min : value > max ? max : value;
-        }
-        public static int Clamp(int value, int min, int max)
-        {
-            return value < min ? min : value > max ? max : value;
-        }
-    }
 
 
     public enum Direction

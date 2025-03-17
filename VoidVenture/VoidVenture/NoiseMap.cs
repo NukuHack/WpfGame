@@ -378,7 +378,7 @@ namespace VoidVenture
             {
                 double delta = y - height;
 
-                // Clamp values directly without using Math2.Clamp (faster inline implementation)
+                // Clamp values directly without using Math.Clamp (faster inline implementation)
                 double grass = Math.Max(0, Math.Min(delta * invGrass, 1));
                 double dirt = Math.Max(0, Math.Min((delta - GrassDepth) * invDirt, 1));
                 double stone = Math.Max(0, Math.Min((delta - DirtDepth) * invStone, 1));

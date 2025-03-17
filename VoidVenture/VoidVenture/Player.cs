@@ -110,55 +110,56 @@ namespace VoidVenture
             Velocity = new Vector(Velocity.X * Friction, Velocity.Y * Friction);
         }
 
-        private void HandleEdgeMovement()
-        {
-            double edge = 0.95;
-            if (X + Width >= _window.currentWidth * edge)
-            {
-                double correction = X + Width - _window.currentWidth * edge;
-                _window.MoveOffset(Direction.Right, correction);
-                X -= correction;
-            }
-            else if (X <= _window.currentWidth * (1 - edge))
-            {
-                double correction = X - _window.currentWidth * (1 - edge);
-                _window.MoveOffset(Direction.Right, correction);
-                X -= correction;
-            }
 
-            if (Y + Height >= _window.currentHeight * edge)
-            {// double it for bottom (because it looks bad othervise)
-                double correction = Y + Height - _window.currentHeight * edge;
-                _window.MoveOffset(Direction.Down, correction);
-                Y -= correction;
-            }
-            else if (Y <= _window.currentHeight * (1 - edge))
+            private void HandleEdgeMovement()
             {
-                double correction = Y - _window.currentHeight * (1 - edge);
-                _window.MoveOffset(Direction.Down, correction);
-                Y -= correction;
+                double edge = 0.95;
+                if (X + Width >= _window.currentWidth * edge)
+                {
+                    double correction = X + Width - _window.currentWidth * edge;
+                    _window.MoveOffset(Direction.Right, correction);
+                    X -= correction;
+                }
+                else if (X <= _window.currentWidth * (1 - edge))
+                {
+                    double correction = _window.currentWidth * (1 - edge) - X;
+                    _window.MoveOffset(Direction.Left, correction);
+                    X += correction;
+                }
+
+                if (Y + Height >= _window.currentHeight * edge)
+                {// double it for bottom (because it looks bad othervise)
+                    double correction = Y + Height - _window.currentHeight * edge;
+                    _window.MoveOffset(Direction.Down, correction);
+                    Y -= correction;
+                }
+                else if (Y <= _window.currentHeight * (1 - edge))
+                {
+                    double correction = _window.currentHeight * (1 - edge) - Y;
+                    _window.MoveOffset(Direction.Up, correction);
+                    Y += correction;
+                }
             }
-        }
 
         private void ClampPosition()
         {
             double edge = 0.95;
-            X = Math2.Clamp(X, _window.currentWidth * (1 - edge), _window.currentWidth* edge);
-            Y = Math2.Clamp(Y, _window.currentHeight * (1 - edge), _window.currentHeight * edge);
+            X = Math.Clamp(X, _window.currentWidth * (1 - edge), _window.currentWidth* edge);
+            Y = Math.Clamp(Y, _window.currentHeight * (1 - edge), _window.currentHeight * edge);
         }
         private void ClampVelocity()
         {
-            double maxX = _window.currentWidth * 0.95;
-            double maxY = _window.currentHeight * 0.95;
+            double edge = 0.95;
+            double leftEdge = _window.currentWidth * (1 - edge);
+            double rightEdge = _window.currentWidth * edge;
+            double maxVelRight = rightEdge - X; // Max rightward velocity
+            double maxVelLeft = X - leftEdge;   // Max leftward velocity
+            double minY = Y - _window.currentHeight * (1 - edge);
+            double maxY = _window.currentHeight * edge - Y;
 
-            // Calculate the maximum allowed velocity to stay within bounds
-            double maxVelX = maxX - X;
-            double maxVelY = maxY - Y;
-
-            // Clamp the velocity components
             Velocity = new Vector(
-                Math2.Clamp(Velocity.X, 0, maxVelX),
-                Math2.Clamp(Velocity.Y, 0, maxVelY)
+                Math.Clamp(Velocity.X, -maxVelLeft, maxVelRight), // Allow negative (left) velocity
+                Math.Clamp(Velocity.Y, -minY/2, maxY)
             );
         }
 

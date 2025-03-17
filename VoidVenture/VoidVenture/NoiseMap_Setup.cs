@@ -283,7 +283,7 @@ namespace VoidVenture
                 Scale *= (e.Delta > 0) ? ZoomFactor : 1 / ZoomFactor;
                 if (Scale >= 10 || Scale <= 0.3)
                 {
-                    Scale = Math2.Clamp(Scale, 0.3, 10); // Prevent invalid scales
+                    Scale = Math.Clamp(Scale, 0.3, 10); // Prevent invalid scales
                     return;
                 }
 
