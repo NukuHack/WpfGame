@@ -46,7 +46,6 @@ You might wonder why I’m using .NET. While I’d love to avoid it, creating th
 - **Modular Architecture**  
   Clean separation of concerns with:
   - `Player` physics/movement class 
-  - `Math2` helper math module - only to implement `Math.Clamp`
   - `Color2` helper color module - only to implement `Color.Lerp`
   - `Palette` color management system 
   - `Saves` - planned saves 
