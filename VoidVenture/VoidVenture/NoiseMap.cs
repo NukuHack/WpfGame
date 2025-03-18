@@ -34,33 +34,49 @@ using Microsoft.Win32;
 
 namespace VoidVenture
 {
-    public class TerrainChunk
-    {
-        public int StartX { get; }
-        public int Width { get; }
-        public uint[,] Pixels { get; }
-        public double[] Heights { get; }
 
-        public TerrainChunk(int startX, int width, int height)
+
+    public class PerlinNoise
+    {
+        private readonly int[] permutation = new int[512];
+
+        public PerlinNoise(int seed)
         {
-            StartX = startX;
-            Width = width;
-            Pixels = new uint[height, width];
-            Heights = new double[width];
+            var random = new Random(seed);
+
+            // Initialize and shuffle the first 256 elements
+            for (int i = 0; i < 256; i++)
+                permutation[i] = i;
+
+            for (int i = 255; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                (permutation[i], permutation[j]) = (permutation[j], permutation[i]);
+            }
+
+            // Duplicate the shuffled array to the second half
+            Array.Copy(permutation, 0, permutation, 256, 256);
         }
-    }
 
-    public class StaticChunk
-    {
-        public int StartX { get; }
-        public int Width { get; }
-        public uint Color { get; }
-
-        public StaticChunk(int startX, int width, uint color)
+        public double Noise1D(double x)
         {
-            StartX = startX;
-            Width = width;
-            Color = color;
+            int X = (int)x & 255;
+            x -= Math.Floor(x);
+            double u = Fade(x);
+
+            int hash = permutation[X];
+            int hash2 = permutation[X + 1];
+
+            double a = ((hash & 1) * 2 - 1) * x;
+            double b = ((hash2 & 1) * 2 - 1) * (1 - x);
+
+            return a + u * (b - a);
+        }
+
+        private static double Fade(double t)
+        {
+            // Optimized fade function using polynomial approximation
+            return t * t * t * (t * (t * 6 - 15) + 10);
         }
     }
 
@@ -70,31 +86,26 @@ namespace VoidVenture
     public partial class MainWindow : System.Windows.Window
     {
         public PerlinNoise noiseGenerator;
-        public WriteableBitmap terrainBitmap;
+        private WriteableBitmap _terrainBitmap;
 
         public double[] columnHeights;
-        public double offsetX; // Horizontal offset for terrain panning
-        public double offsetY; // Vertical offset for terrain panning
+        public double offsetX,offsetY;
         public int seed;
         public double Scale = 2;
         public double[,] noiseDebug;
-        public uint[] pixels;
-        public double[] waterDepthLUT;
-        public System.Windows.Point? _moveStartPoint;
+        public uint[] _pixelBuffer;
+        public double normalizationFactor;
+        public int defaultTerrainOffset = 1000;
+
         public int octaveEase = 10;
         public double[] octaveFrequencies;
         public double[] octaveAmplitudes;
         public double[] octaveOffsets;
-        public double normalizationFactor;
-        public int defaultTerrainOffset = 1000;
 
-        private const int StaticChunkHeight = 1200;
-        private uint skyColorArgb;
-        private uint undergroundColorArgb;
-        private const int ChunkSize = 256; // Fixed chunk size
-        private readonly Dictionary<int, object> loadedChunks = new();
-        private readonly object renderLock = new object();
-        private readonly HashSet<int> activeChunks = new();
+        public uint[] SkyLut = new uint[1200];
+        public uint[] WaterLut = new uint[51];
+        public double[] waterDepthLUT;
+
 
 
 
@@ -111,84 +122,22 @@ namespace VoidVenture
             noiseDebug = new double[currentWidth, 2];
             RegenMap();
 
+            SkyLut = new uint[currentHeight];
+            WaterLut = new uint[51];
+
             this.SizeChanged += (s, e) =>
             {
                 // Update the player's state (gravity, collision, etc.)
                 player.Update(gravity, null, columnHeights, false);
+
+                SkyLut = new uint[currentHeight];
+                WaterLut = new uint[51];
 
                 noiseDebug = new double[currentWidth, 2];
                 RenderTerrain();
             };
         }
 
-
-
-        private void RenderTerrainWhole()
-        {
-
-            BeginBitmapRender();
-
-            // Recompute octave parameters if needed
-            if (octaveFrequencies == null || octaveFrequencies.Length != 10 || Math.Abs(octaveFrequencies[0] - 0.003 * Scale) > 1e-6)
-                ComputeOctaveParameters();
-
-            // Reuse columnHeights array if possible
-            if (columnHeights == null || columnHeights.Length != currentWidth)
-            {
-                columnHeights = new double[currentWidth];
-                waterDepthLUT = new double[currentWidth];
-            }
-            ComputeNoiseValues();
-
-            // Precompute gradient parameters
-            var gradientConfig = new GradientConfig
-            {
-                GrassDepth = GrassDepth,
-                GrassColor = GrassColor,
-                SandColor = SandColor,
-                DirtDepth = DirtDepth,
-                DirtColor = DirtColor,
-                StoneColor = StoneColor,
-            };
-
-            var (skyLut, waterLut) = PrecomputeColors();
-
-
-            // Precompute stone color in ARGB format
-            uint stoneColorArgb = 0xFF000000 | ((uint)StoneColor.R << 16) | ((uint)StoneColor.G << 8) | StoneColor.B;
-
-            // Render terrain in parallel
-            Parallel.For(0, currentWidth, x =>
-            {
-                double terrainHeight = columnHeights[x];
-                double localWaterY = waterDepthLUT[x];
-                uint[] gradientMap = GenerateColorLUT(terrainHeight, x, localWaterY, gradientConfig);
-
-                int baseIndex = x; // Base index for this column
-                for (int y = 0; y < currentHeight; y++)
-                {
-                    uint color;
-                    if (y < terrainHeight)
-                    {
-                        if (y > localWaterY)
-                            color = waterLut[(int)Math.Min(y - localWaterY, 50)];
-                        else
-                            color = skyLut[y];
-                    }
-                    else
-                    {
-                        if (y < terrainHeight - DirtDepth - 5 && y > terrainHeight * 1.5)
-                            color = stoneColorArgb;
-                        else
-                            color = gradientMap[y];
-                    }
-
-                    // Store the color in the 1D array
-                    pixels[baseIndex] = color;
-                    baseIndex += currentWidth; // Move to the next row in the same column
-                }
-            });
-        }
 
 
 
@@ -239,244 +188,48 @@ namespace VoidVenture
         public void BeginBitmapRender()
         {
             // Check if the bitmap needs to be recreated
-            if (terrainBitmap == null || terrainBitmap.PixelWidth != currentWidth || terrainBitmap.PixelHeight != currentHeight)
+            if (_terrainBitmap == null || _terrainBitmap.PixelWidth != currentWidth || _terrainBitmap.PixelHeight != currentHeight)
             {
-                // Get system DPI
-                var source = PresentationSource.FromVisual(this);
-                double dpiX = 96.0, dpiY = 96.0;
-                if (source != null)
-                {
-                    dpiX = 96.0 * source.CompositionTarget.TransformToDevice.M11;
-                    dpiY = 96.0 * source.CompositionTarget.TransformToDevice.M22;
-                }
-
-                // Create a new WriteableBitmap with the updated dimensions and DPI
-                terrainBitmap = new WriteableBitmap(currentWidth, currentHeight, dpiX, dpiY, PixelFormats.Bgra32, null);
-
-                // Recreate the pixel array
-                pixels = new uint[currentHeight * currentWidth]; // Use 1D array for faster access
+                var dpi = VisualTreeHelper.GetDpi(this);
+                _terrainBitmap = new WriteableBitmap(
+                    currentWidth,
+                    currentHeight,
+                    dpi.PixelsPerInchX,
+                    dpi.PixelsPerInchY,
+                    PixelFormats.Bgra32,
+                    null
+                );
+                _pixelBuffer = new uint[currentWidth * currentHeight];
             }
         }
 
         public void RenderTerrain()
         {
-            if (DO.UseChunkGen) RenderTerrainChunks();
-            else RenderTerrainWhole();
-
-
-            // Write pixels to the bitmap
-            terrainBitmap.WritePixels(new Int32Rect(0, 0, currentWidth, currentHeight), pixels, currentWidth * 4, 0);
-            terrainImage.Source = terrainBitmap;
-
-            // Update transform
-            terrainScaleTransform.ScaleX = currentWidth / (double)terrainImage.Source.Width;
-            terrainScaleTransform.ScaleY = currentHeight / (double)terrainImage.Source.Height;
-        }
-
-        private void RenderTerrainChunks()
-        {
-            BeginBitmapRender();
-
-            // Recompute octave parameters if needed
-            if (octaveFrequencies == null || octaveFrequencies.Length != 10 || Math.Abs(octaveFrequencies[0] - 0.003 * Scale) > 1e-6)
-                ComputeOctaveParameters();
-
-            // Reuse columnHeights array if possible
-            if (columnHeights == null || columnHeights.Length != currentWidth)
-            {
-                columnHeights = new double[currentWidth];
-                waterDepthLUT = new double[currentWidth];
-            }
-            ComputeNoiseValues();
 
             // Precompute gradient parameters
-            var gradientConfig = new GradientConfig
+            gradientConfig = new GradientConfig
             {
                 GrassDepth = GrassDepth,
-                GrassColor = GrassColor,
-                SandColor = SandColor,
                 DirtDepth = DirtDepth,
+
+                GrassColor = GrassColor,
                 DirtColor = DirtColor,
+                SandColor = SandColor,
+
                 StoneColor = StoneColor,
+                SkyColor = SkyColor,
+                WaterColor = WaterColor,
+                WaterDeepColor = WaterDeepColor,
             };
 
-            var (skyLut, waterLut) = PrecomputeColors();
-
-
-            double viewportStartX = offsetX;
-            double viewportEndX = offsetX + currentWidth;
-
-            int firstChunkIndex = (int)Math.Floor(viewportStartX / ChunkSize);
-            int lastChunkIndex = (int)Math.Floor((viewportEndX - 1) / ChunkSize);
-            int numChunks = lastChunkIndex - firstChunkIndex + 1;
-
-            Parallel.For(0, numChunks, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, chunkIndex =>
+            if (DO.UseChunkGen)
             {
-
-                int chunkStartX = firstChunkIndex * ChunkSize + chunkIndex * ChunkSize;
-                int startX = chunkStartX;
-                int width = Math.Min(ChunkSize, (int)(viewportEndX - startX));
-
-                if (width <= 0)
-                    return;
-
-                if (!loadedChunks.ContainsKey(startX))
-                {
-                    GenerateAppropriateChunk(startX, width);
-                }
-
-                RenderAppropriateChunk(loadedChunks[startX]);
-
-            });
-
-            UnloadUnusedChunks();
-        }
-
-
-
-
-
-        private void GenerateAppropriateChunk(int startX, int width)
-        {
-            if (startX < -ChunkSize * 2 || startX > currentWidth * 2)
-            {
-                GenerateStaticChunk(startX, width);
+                RenderTerrainChunks();
             }
+
             else
-            {
-                GenerateDynamicChunk(startX, width);
-            }
-        }
+                RenderTerrainWhole();
 
-        private void GenerateStaticChunk(int startX, int width)
-        {
-            uint color = (startX < -ChunkSize) ? skyColorArgb : undergroundColorArgb;
-            var chunk = new StaticChunk(startX, width, color);
-            lock (loadedChunks)
-            {
-                loadedChunks[startX] = chunk;
-            }
-        }
-
-        private void GenerateDynamicChunk(int startX, int width)
-        {
-            TerrainChunk chunk = new TerrainChunk(startX, width, currentHeight);
-            for (int x = 0; x < width; x++)
-            {
-                int globalX = startX + x;
-                int localX = globalX - (int)offsetX;
-                if (localX < 0 || localX >= columnHeights.Length) continue;
-                double terrainHeight = columnHeights[localX];
-                double localWaterY = waterDepthLUT[localX];
-
-                for (int y = 0; y < currentHeight; y++)
-                {
-                    // Calculate world Y coordinate
-                    double worldY = offsetY + y;
-                    uint color = worldY < terrainHeight ? 0xFF00FF00 : 0xFF8B4513;
-                    chunk.Pixels[y, x] = color;
-                }
-                chunk.Heights[x] = terrainHeight;
-            }
-            lock (loadedChunks)
-            {
-                loadedChunks[startX] = chunk;
-            }
-        }
-
-        private void RenderAppropriateChunk(object chunk)
-        {
-            switch (chunk)
-            {
-                case TerrainChunk tc:
-                    RenderDynamicChunk(tc);
-                    break;
-                case StaticChunk sc:
-                    RenderStaticChunk(sc);
-                    break;
-            }
-        }
-
-        private void RenderDynamicChunk(TerrainChunk chunk)
-        {
-            lock (renderLock)
-            {
-                int startX = chunk.StartX;
-                int endX = startX + chunk.Width;
-
-                // Calculate visible portion
-                int visibleStart = Math.Max(startX, (int)offsetX);
-                int visibleEnd = Math.Min(endX, (int)(offsetX + currentWidth));
-
-                if (visibleStart >= visibleEnd) return;
-
-                for (int x = 0; x < chunk.Width; x++)
-                {
-                    int globalX = chunk.StartX + x;
-                    int viewportX = globalX - (int)offsetX;
-
-                    if (viewportX < 0 || viewportX >= currentWidth) continue;
-
-                    int baseIndex = viewportX;
-
-                    for (int y = 0; y < currentHeight; y++)
-                    {
-                        pixels[baseIndex] = chunk.Pixels[y, x];
-                        if (DO.Debug && x==chunk.StartX)
-                            pixels[baseIndex] = 0xFFFF00FF; // Magenta
-
-                        baseIndex += currentWidth;
-                    }
-                }
-            }
-        }
-
-        private void RenderStaticChunk(StaticChunk chunk)
-        {
-            lock (renderLock)
-            {
-                for (int x = 0; x < chunk.Width; x++)
-                {
-                    int globalX = chunk.StartX + x;
-                    int viewportX = globalX - (int)offsetX;
-
-                    if (viewportX < 0 || viewportX >= currentWidth) continue;
-
-                    int baseIndex = viewportX;
-
-                    for (int y = 0; y < currentHeight; y++)
-                    {
-                        pixels[baseIndex] = chunk.Color;
-                        baseIndex += currentWidth;
-                    }
-                }
-            }
-        }
-
-        private void UnloadUnusedChunks()
-        {
-            int viewportStartX = (int)Math.Max(0, offsetX - ChunkSize);
-            int viewportEndX = (int)(offsetX + currentWidth + ChunkSize);
-
-            List<int> chunksToRemove = new();
-            foreach (var chunkKey in loadedChunks.Keys)
-            {
-                if (chunkKey + ChunkSize < viewportStartX - currentWidth || chunkKey > viewportEndX + currentWidth)
-                {
-                    chunksToRemove.Add(chunkKey);
-                }
-            }
-
-            foreach (var key in chunksToRemove)
-            {
-                loadedChunks.Remove(key);
-            }
-        }
-
-
-        private void UnloadAllChunks()
-        {
-            loadedChunks.Clear();
         }
 
 
@@ -485,8 +238,7 @@ namespace VoidVenture
 
 
 
-
-        private uint[] GenerateColorLUT(double height, int x, double localWaterY, GradientConfig gradientConfig)
+        private uint[] GenerateColorLUT(double height, int x, double localWaterY)
         {
             uint[] lut = new uint[currentHeight];
 
@@ -540,7 +292,7 @@ namespace VoidVenture
         }
 
 
-        public (uint[], uint[]) PrecomputeColors()
+        public void PrecomputeGradientColors()
         {
             // Precompute sky gradient LUT
             var skyLut = new uint[currentHeight];
@@ -573,7 +325,8 @@ namespace VoidVenture
                 waterLut[d] = 0xFF000000 | ((uint)r << 16) | ((uint)g << 8) | b;
             }
 
-            return (skyLut, waterLut);
+            SkyLut = skyLut;
+            WaterLut = waterLut;
         }
 
 

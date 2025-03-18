@@ -15,7 +15,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Diagnostics.Eventing.Reader;
 
-
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;

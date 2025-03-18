@@ -35,10 +35,29 @@ namespace VoidVenture
             return Color.FromArgb(a, r, g, b);
         }
 
+        private static uint LerpColor(uint from, uint to, float t)
+        {
+            int fromR = (int)((from >> 16) & 0xFF);
+            int fromG = (int)((from >> 8) & 0xFF);
+            int fromB = (int)(from & 0xFF);
+
+            int toR = (int)((to >> 16) & 0xFF);
+            int toG = (int)((to >> 8) & 0xFF);
+            int toB = (int)(to & 0xFF);
+
+            int r = (int)(fromR + (toR - fromR) * t);
+            int g = (int)(fromG + (toG - fromG) * t);
+            int b = (int)(fromB + (toB - fromB) * t);
+
+            return (uint)((255 << 24) | (r << 16) | (g << 8) | b);
+        }
+
         public static uint ToUint(this Color color)
         {
             return (uint)((color.A << 24) | (color.R << 16) | (color.G << 8) | color.B);
         }
+
+
     }
 
 
@@ -51,6 +70,8 @@ namespace VoidVenture
         Right,
         None
     }
+
+
 
 
 

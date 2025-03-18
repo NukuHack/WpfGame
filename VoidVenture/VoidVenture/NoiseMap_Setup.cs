@@ -34,51 +34,6 @@ using Microsoft.Win32;
 namespace VoidVenture
 {
 
-    public class PerlinNoise
-    {
-        private readonly int[] permutation = new int[512];
-
-        public PerlinNoise(int seed)
-        {
-            var random = new Random(seed);
-
-            // Initialize and shuffle the first 256 elements
-            for (int i = 0; i < 256; i++)
-                permutation[i] = i;
-
-            for (int i = 255; i > 0; i--)
-            {
-                int j = random.Next(i + 1);
-                (permutation[i], permutation[j]) = (permutation[j], permutation[i]);
-            }
-
-            // Duplicate the shuffled array to the second half
-            Array.Copy(permutation, 0, permutation, 256, 256);
-        }
-
-        public double Noise1D(double x)
-        {
-            int X = (int)x & 255;
-            x -= Math.Floor(x);
-            double u = Fade(x);
-
-            int hash = permutation[X];
-            int hash2 = permutation[X + 1];
-
-            double a = ((hash & 1) * 2 - 1) * x;
-            double b = ((hash2 & 1) * 2 - 1) * (1 - x);
-
-            return a + u * (b - a);
-        }
-
-        private static double Fade(double t)
-        {
-            // Optimized fade function using polynomial approximation
-            return t * t * t * (t * (t * 6 - 15) + 10);
-        }
-    }
-
-
 
     public class TerrainColorGenerator
     {
@@ -181,21 +136,26 @@ namespace VoidVenture
     }
 
 
+
     public struct GradientConfig
     {
-        public int GrassDepth;
-        public Color GrassColor;
-        public Color SandColor;
-
-        public int DirtDepth;
-        public Color DirtColor;
-
-        public Color StoneColor;
+        public int GrassDepth { get; set; }
+        public int DirtDepth { get; set; }
+        public Color GrassColor { get; set; }
+        public Color DirtColor { get; set; }
+        public Color StoneColor { get; set; }
+        public Color SandColor { get; set; }
+        public Color SkyColor { get; set; }
+        public Color WaterColor { get; set; }
+        public Color WaterDeepColor { get; set; }
     }
-
 
     public partial class MainWindow : Window
     {
+
+        public System.Windows.Point? _moveStartPoint;
+        private uint skyColorArgb;
+        private uint undergroundColorArgb;
 
 
         public double WorldMulti = 3.5;
@@ -210,6 +170,8 @@ namespace VoidVenture
         public Color DirtColor = Colors.SaddleBrown;
         public Color SkyColor = Colors.LightBlue;
         public Color StoneColor = Colors.DarkGray;
+
+        public GradientConfig gradientConfig;
 
         public void SetupTerrainMoveWithRightClick()
         {
