@@ -16,7 +16,7 @@ You might wonder why I’m using .NET. While I’d love to avoid it, creating th
 - 🎮 [How to Play](#how-to-play)
 - 📦 [Getting Started](#getting-started)
 - 🤝 [Contributing](#contributing)
-- 🎨 [Acknowledgments](#acknowledgments)
+- 📚 [Documentation](#documentation)
 - 📜 [License](#license)
 
 ---
@@ -126,19 +126,11 @@ Plans for the future:
 
 ---
 
+<a id="documentation"></a>
 ## 📚 Documentation 
 
 - [WPF Documentation](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/)
 - [TMX Map Format](https://doc.mapeditor.org/en/stable/reference/tmx-map-format/)
-
----
-
-<a id="acknowledgments"></a>
-## 🎨 Acknowledgments 
-
-Special thanks to:  
-- nothing yet ...
-
 
 ---
 
