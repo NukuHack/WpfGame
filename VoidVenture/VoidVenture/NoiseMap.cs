@@ -119,8 +119,8 @@ namespace VoidVenture
             SetupGetInfoFromTerrainOnLeftClick();
             SetupTerrainScalingWithScrolling();
 
-            SkyColorArgb = 0xFF000000 | ((uint)SkyColor.R << 16) | ((uint)SkyColor.G << 8) | SkyColor.B;
-            GroundColorArgb = 0xFF000000 | ((uint)StoneColor.R << 16) | ((uint)StoneColor.G << 8) | StoneColor.B;
+            SkyColorArgb = Color2.ToUint(SkyColor);
+            GroundColorArgb = Color2.ToUint(StoneColor);
 
             noiseDebug = new double[currentWidth, 2];
             RegenMap();
@@ -170,8 +170,9 @@ namespace VoidVenture
                 DirtColor = colors[4];
                 SkyColor = colors[5];
                 StoneColor = colors[6];
-                SkyColorArgb = 0xFF000000 | ((uint)SkyColor.R << 16) | ((uint)SkyColor.G << 8) | SkyColor.B;
-                GroundColorArgb = 0xFF000000 | ((uint)StoneColor.R << 16) | ((uint)StoneColor.G << 8) | StoneColor.B;
+                
+                SkyColorArgb = Color2.ToUint(SkyColor);
+                GroundColorArgb = Color2.ToUint(StoneColor);
             }
 
             if (DO.UseChunkGen)
