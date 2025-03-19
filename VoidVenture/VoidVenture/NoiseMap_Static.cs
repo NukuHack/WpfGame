@@ -47,26 +47,7 @@ namespace VoidVenture
 
         private void RenderTerrainWhole()
         {
-
-            BeginBitmapRender();
-
-            // Recompute octave parameters if needed
-            if (octaveFrequencies == null || octaveFrequencies.Length != 10 || Math.Abs(octaveFrequencies[0] - 0.003 * Scale) > 1e-6)
-                ComputeOctaveParameters();
-
-            // Reuse columnHeights array if possible
-            if (columnHeights == null || columnHeights.Length != currentWidth)
-            {
-                columnHeights = new double[currentWidth];
-                waterDepthLUT = new double[currentWidth];
-            }
-            ComputeNoiseValues();
-
-            PrecomputeGradientColors();
-
-
-            // Precompute stone color in ARGB format
-            uint stoneColorArgb = 0xFF000000 | ((uint)StoneColor.R << 16) | ((uint)StoneColor.G << 8) | StoneColor.B;
+            BeginTerrainGenerating();
 
             // Render terrain in parallel
             Parallel.For(0, currentWidth, x =>
@@ -89,7 +70,7 @@ namespace VoidVenture
                     else
                     {
                         if (y < terrainHeight - DirtDepth - 5 && y > terrainHeight * 1.5)
-                            color = stoneColorArgb;
+                            color = GroundColorArgb;
                         else
                             color = gradientMap[y];
                     }
@@ -101,13 +82,7 @@ namespace VoidVenture
             });
 
 
-            // Write pixels to the bitmap
-            _terrainBitmap.WritePixels(new Int32Rect(0, 0, currentWidth, currentHeight), _pixelBuffer, currentWidth * 4, 0);
-            terrainImage.Source = _terrainBitmap;
-
-            // Update transform
-            terrainScaleTransform.ScaleX = currentWidth / (double)terrainImage.Source.Width;
-            terrainScaleTransform.ScaleY = currentHeight / (double)terrainImage.Source.Height;
+            UpdateTerrainDisplay();
         }
     }
 }

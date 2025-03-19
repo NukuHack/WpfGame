@@ -34,23 +34,59 @@ using Microsoft.Win32;
 namespace VoidVenture
 {
 
-
     public class TerrainColorGenerator
     {
-        private static Random random = new Random();
+        private static readonly Random random = new Random();
+
+        // Biome parameters struct for better memory efficiency
+        private readonly struct BiomeParams
+        {
+            public readonly double HueMin, HueMax, SatMin, SatMax, LightMin, LightMax;
+
+            public BiomeParams(double hueMin, double hueMax, double satMin, double satMax, double lightMin, double lightMax)
+            {
+                HueMin = hueMin;
+                HueMax = hueMax;
+                SatMin = satMin;
+                SatMax = satMax;
+                LightMin = lightMin;
+                LightMax = lightMax;
+            }
+        }
 
         public static List<Color> GenerateColors(int count = 6)
         {
-            var colors = new List<Color>();
+            var colors = new List<Color>(count);
+
+            // Predefine biome templates as an array of structs
+            var biomeTemplates = new BiomeParams[]
+            {
+            new BiomeParams(180, 240, 10, 30, 10, 30),   // Deep water
+            new BiomeParams(200, 270, 15, 40, 20, 40),   // Shallow water
+            new BiomeParams(30, 90, 10, 30, 30, 50),     // Sand/beach
+            new BiomeParams(40, 100, 15, 40, 40, 60),    // Desert
+            new BiomeParams(60, 160, 10, 30, 30, 50),    // Grassland/forest
+            new BiomeParams(80, 180, 10, 30, 40, 60),    // Swamp/marsh
+            new BiomeParams(10, 70, 5, 25, 20, 40),      // Mountain rock
+            new BiomeParams(0, 40, 5, 25, 30, 50),       // Volcanic rock
+            new BiomeParams(0, 360, 0, 10, 60, 80),      // Snow
+            new BiomeParams(200, 300, 5, 20, 50, 70)     // Ice
+            };
 
             for (int i = 0; i < count; i++)
             {
                 // Get biome parameters based on elevation level (index)
-                var (hueMin, hueMax, satMin, satMax, lightMin, lightMax) = GetBiomeParams(i, count);
+                var segment = (double)i / (count - 1); // 0 (low elevation) to 1 (high)
+                var templateIndex = random.Next(biomeTemplates.Length);
+                var biome = biomeTemplates[templateIndex];
+
+                // Adjust lightness based on elevation segment
+                double lightMin = biome.LightMin + segment * 30;
+                double lightMax = biome.LightMax + segment * 30;
 
                 // Generate random HSL within biome constraints
-                double h = RandomRange(hueMin, hueMax);
-                double s = RandomRange(satMin, satMax);
+                double h = RandomRange(biome.HueMin, biome.HueMax);
+                double s = RandomRange(biome.SatMin, biome.SatMax);
                 double l = RandomRange(lightMin, lightMax);
 
                 // Convert to RGB and add to list
@@ -58,36 +94,6 @@ namespace VoidVenture
             }
 
             return colors;
-        }
-
-        private static (double, double, double, double, double, double) GetBiomeParams(int index, int total)
-        {
-            double segment = (double)index / (total - 1); // 0 (low elevation) to 1 (high)
-
-            // Define biome templates as tuples: (hueMin, hueMax, satMin, satMax, lightMin, lightMax)
-            var biomeTemplates = new List<(double, double, double, double, double, double)>
-        {
-            (180, 240, 10, 30, 10, 30),   // Deep water (dark blue-gray)
-            (200, 270, 15, 40, 20, 40),   // Shallow water (dark cyan-blue)
-            (30, 90, 10, 30, 30, 50),     // Sand/beach (dark yellow-brown)
-            (40, 100, 15, 40, 40, 60),    // Desert (dark warm brown)
-            (60, 160, 10, 30, 30, 50),    // Grassland/forest (dark green-gray)
-            (80, 180, 10, 30, 40, 60),    // Swamp/marsh (dark olive-green)
-            (10, 70, 5, 25, 20, 40),      // Mountain rock (dark gray-brown)
-            (0, 40, 5, 25, 30, 50),       // Volcanic rock (dark red-brown)
-            (0, 360, 0, 10, 60, 80),      // Snow (very desaturated white)
-            (200, 300, 5, 20, 50, 70)     // Ice (dark blue-gray)
-        };
-
-            // Randomly select a biome template
-            var randomTemplate = biomeTemplates[random.Next(biomeTemplates.Count)];
-
-            // Adjust lightness based on elevation segment for progression
-            var (hueMin, hueMax, satMin, satMax, lightMin, lightMax) = randomTemplate;
-            lightMin += segment * 30; // Increase lightness at higher elevations (but still darker overall)
-            lightMax += segment * 30;
-
-            return (hueMin, hueMax, satMin, satMax, lightMin, lightMax);
         }
 
         private static double RandomRange(double min, double max)
@@ -108,17 +114,14 @@ namespace VoidVenture
                 double q = l < 50 ? l * (1 + s / 100) : l + s - (l * s) / 100;
                 double p = (2 * l - q) / 100;
                 h /= 360;
-                double tR = h + 1.0 / 3;
-                double tG = h;
-                double tB = h - 1.0 / 3;
 
-                r = HueToRgb(p, q / 100, tR);
-                g = HueToRgb(p, q / 100, tG);
-                b = HueToRgb(p, q / 100, tB);
+                r = HueToRgb(p, q / 100, h + 1.0 / 3);
+                g = HueToRgb(p, q / 100, h);
+                b = HueToRgb(p, q / 100, h - 1.0 / 3);
             }
 
             return Color.FromArgb(
-                (byte)(255),
+                255,
                 (byte)(r * 255),
                 (byte)(g * 255),
                 (byte)(b * 255));
@@ -154,8 +157,8 @@ namespace VoidVenture
     {
 
         public System.Windows.Point? _moveStartPoint;
-        private uint skyColorArgb;
-        private uint undergroundColorArgb;
+        private uint SkyColorArgb;
+        private uint GroundColorArgb;
 
 
         public double WorldMulti = 3.5;
@@ -184,33 +187,22 @@ namespace VoidVenture
                 _moveStartPoint = null;
             };
             this.GameCanvas.MouseMove += (s, e) => {
-                if (isGamePaused) return;
+                if (isGamePaused || !_moveStartPoint.HasValue) return;
 
-                if (_moveStartPoint.HasValue)
-                {
-                    System.Windows.Point currentPos = e.GetPosition(terrainImage);
+                System.Windows.Point currentPos = e.GetPosition(terrainImage);
+                // Calculate the delta between the current mouse position and the starting point
+                Vector delta = _moveStartPoint.Value - currentPos;
+                _moveStartPoint = currentPos;
 
-                    infoText.Visibility = Visibility.Collapsed;
-                    // Calculate the delta between the current mouse position and the starting point
-                    Vector delta = _moveStartPoint.Value - currentPos;
+                // Update the terrain's offsets
+                offsetX += delta.X;
+                offsetY += delta.Y;
+                // Update the player's position
+                player.X -= delta.X * 0.7;
+                player.Y -= delta.Y;
 
-                    // Update the terrain's offsets
-                    offsetX += delta.X / Scale * 0.7;
-                    offsetY -= delta.Y;
-                    // don't ask me why these are the random values the stuff get's multiplied by ... idk ...
-                    // Update the player's position
-                    player.X -= delta.X * 0.7;
-                    player.Y -= delta.Y / Scale * 0.3;
-
-                    // Update the starting point for the next movement
-                    _moveStartPoint = currentPos;
-
-                    // Update the player's state (gravity, collision, etc.)
-                    player.Update(gravity, null, columnHeights);
-
-                    // Regenerate the terrain with the new offsets
-                    RenderTerrain();
-                }
+                player.Update(gravity, null, columnHeights);
+                RenderTerrain();
             };
         }
 
@@ -218,61 +210,29 @@ namespace VoidVenture
         {
             this.GameCanvas.MouseWheel += (s, e) => {
                 if (isGamePaused)return;
-
-                infoText.Visibility = Visibility.Collapsed;
-                double oldScale = Scale;
-                double ZoomFactor = 1.1;
+                HideInfoDisplay();
 
                 // Adjust scale factor
+                double oldScale = Scale;
+                double ZoomFactor = 1.1;
+                if ((e.Delta < 0 && Scale == 0.3) || (e.Delta > 0 && Scale == 10)) return;
                 Scale *= (e.Delta > 0) ? ZoomFactor : 1 / ZoomFactor;
-                if (Scale >= 10 || Scale <= 0.3)
-                {
-                    Scale = Math.Clamp(Scale, 0.3, 10); // Prevent invalid scales
-                    return;
-                }
+                Scale = Math.Clamp(Scale, 0.3, 10); // Clamp scale to valid range
 
                 // Get mouse position relative to the terrainImage
                 System.Windows.Point mousePos = e.GetPosition(terrainImage);
 
-                // Calculate the offset adjustments for the terrain
-                double scaledMouseXOld = mousePos.X / oldScale;
-                double scaledMouseXNew = mousePos.X / Scale;
-                double offsetXAdjustment = scaledMouseXOld - scaledMouseXNew;
+                // Calculate the center of the zoom in world coordinates
+                double centerX = mousePos.X / Scale + offsetX;
+                double centerY = (mousePos.Y - offsetY) / Scale + offsetY;
 
-                double scaledMouseYOld = (mousePos.Y - offsetY) / oldScale;
-                double scaledMouseYNew = (mousePos.Y - offsetY) / Scale;
-                double offsetYAdjustment = mousePos.Y - (scaledMouseYOld - scaledMouseYNew) * Scale;
+                // Update offsets based on the new scale
+                offsetX = centerX - mousePos.X / Scale;
+                offsetY = centerY - (mousePos.Y - offsetY) / Scale;
 
-                // Update offsets for the terrain
-                offsetX += offsetXAdjustment;
-                offsetY = offsetYAdjustment;
-
-                // Adjust the player's position relative to the mouse position
-                double playerXOld = player.X;
-                double playerYOld = player.Y;
-
-                // Scale the player's position relative to the mouse
-                player.X = mousePos.X + (playerXOld - mousePos.X) * (Scale / oldScale);
-                player.Y = mousePos.Y + (playerYOld - mousePos.Y) * (Scale / oldScale);
-
-                // stupid checks so the player will get updated manually before actually processing the X
-                // othervise the "columnHeights[player.X]" might be out of bounds ... and crash
-                if (player.X > columnHeights.Length - 1)
-                    player.X = columnHeights.Length - player.Width - 1;
-                else if (player.X - player.Width < 1)
-                    player.X = 1 + player.Width;
-
-                for (int x = 0; x < player.Width; x++)
-                {
-                    if (player.Y >= columnHeights[(int)player.X + x])
-                        player.Y = columnHeights[(int)player.X + x] - 1;
-                }
-
-
-                // Update the player's state (gravity, collision, etc.)
+                Player_RePos();
                 player.Update(gravity, null, columnHeights);
 
-                // Regenerate terrain with the new scale and offsets
                 RenderTerrain();
             };
         }
@@ -281,7 +241,7 @@ namespace VoidVenture
         {
             this.infoText.MouseDown += (s, e) =>
             {
-                this.infoText.Visibility = Visibility.Collapsed;
+                HideInfoDisplay();
             };
 
             this.GameCanvas.MouseMove += (s, e) => {
@@ -293,7 +253,7 @@ namespace VoidVenture
                 inMouseDown = false;
                 Task.Delay(1000).ContinueWith(_ => this.Dispatcher.Invoke(() => {
                     if (!inMouseDown)
-                        infoText.Visibility = Visibility.Collapsed;
+                        HideInfoDisplay();
                 }));
             };
 
@@ -303,6 +263,10 @@ namespace VoidVenture
                 inMouseDown = true;
                 UpdateInfoDisplay(e);
             };
+        }
+        public void HideInfoDisplay()
+        {
+            infoText.Visibility = Visibility.Collapsed;
         }
         public void UpdateInfoDisplay(MouseEventArgs e)
         {
@@ -314,7 +278,7 @@ namespace VoidVenture
             // Bounds check
             if (x < 0 || x >= currentWidth || y < 0 || y >= currentHeight)
             {
-                infoText.Visibility = Visibility.Collapsed;
+                HideInfoDisplay();
                 return;
             }
 
@@ -362,8 +326,8 @@ namespace VoidVenture
             if (isGamePaused) return;
             switch (direction)
             {
-                case Direction.Up: offsetY += value; break;
-                case Direction.Down: offsetY -= value; break;
+                case Direction.Up: offsetY -= value; break;
+                case Direction.Down: offsetY += value; break;
                 case Direction.Right: offsetX += value; break;
                 case Direction.Left: offsetX -= value; break;
             }
